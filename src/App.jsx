@@ -165,7 +165,10 @@ function StabilityPill({stability}){
       border:`1px solid ${color}30`,color,background:`${color}15`}}>
       {label}
     </span>
-  );function DiscCard({disc,actions=[]}){
+  );
+}
+
+function DiscCard({disc,actions=[]}){
   return(
     <div style={{display:"flex",alignItems:"center",gap:12,padding:12,
       background:C.surface,border:`1px solid ${C.line}`,borderRadius:14}}>
@@ -436,7 +439,9 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
       )}
     </div>
   );
-}// ─── Hoved-app ───────────────────────────────────────────────────────────
+}
+
+// ─── Hoved-app ───────────────────────────────────────────────────────────
 export default function App(){
   const[allDiscs,setAllDiscs]=useState([]);
   const[discsLoading,setDiscsLoading]=useState(true);
@@ -778,5 +783,4 @@ export default function App(){
       </div>
     </div>
   );
-                        }
 }
