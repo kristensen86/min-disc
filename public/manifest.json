@@ -1,0 +1,17 @@
+{
+  "name": "Min Disc",
+  "short_name": "Min Disc",
+  "description": "Disc golf disc tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1714",
+  "theme_color": "#f2c14e",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
