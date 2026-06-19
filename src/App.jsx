@@ -38,6 +38,21 @@ function decodeBag(enc){
   try{return JSON.parse(decodeURIComponent(escape(atob(enc))));}catch{return null;}
 }
 
+const store={
+  async get(key){
+    if(typeof window!=="undefined"&&window.storage){
+      try{return await window.storage.get(key);}catch{return null;}
+    }
+    try{const v=localStorage.getItem("md_"+key);return v?{value:v}:null;}catch{return null;}
+  },
+  async set(key,value){
+    if(typeof window!=="undefined"&&window.storage){
+      try{return await window.storage.set(key,value);}catch{return null;}
+    }
+    try{localStorage.setItem("md_"+key,value);return{value};}catch{return null;}
+  },
+};
+
 function typeFromSpeed(s){if(s<=3)return"Putter";if(s<=5)return"Midrange";if(s<=8)return"Fairway";return"Distance";}
 const RAW=[
   ["innova-aviar","Innova","Aviar",2,3,0,1],["discraft-luna","Discraft","Luna",3,3,0,3],
@@ -208,16 +223,13 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
     pNote:cur.pNote||"",pWear:cur.pWear||null,pPhoto:cur.pPhoto||null,
   });
   const set=k=>v=>setVals(p=>({...p,[k]:v}));
-
   async function handlePhoto(e){
     const file=e.target.files?.[0];
     if(file){const data=await resizeImage(file);set("pPhoto")(data);}
   }
-
   return(
     <div style={{padding:"12px 14px",background:C.raised,
       border:`1px solid ${C.brand}40`,borderRadius:"0 0 14px 14px",marginTop:-2}}>
-
       <div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:"0.06em",
         textTransform:"uppercase",marginBottom:8}}>Flight-tal</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
@@ -233,11 +245,9 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
           </label>
         ))}
       </div>
-
       <div style={{borderTop:`1px solid ${C.line}`,paddingTop:12,marginBottom:10}}>
         <div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:"0.06em",
           textTransform:"uppercase",marginBottom:10}}>Min disc</div>
-
         <div style={{marginBottom:10}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Foto</div>
           {vals.pPhoto?(
@@ -247,15 +257,11 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
             </div>
           ):(
             <label style={{cursor:"pointer"}}>
-              <div style={{...miniBtn(C.muted),display:"inline-flex",alignItems:"center",gap:6}}>
-                📷 Upload foto
-              </div>
-              <input type="file" accept="image/*" capture="environment"
-                style={{display:"none"}} onChange={handlePhoto}/>
+              <div style={{...miniBtn(C.muted),display:"inline-flex",alignItems:"center",gap:6}}>📷 Upload foto</div>
+              <input type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
             </label>
           )}
         </div>
-
         <div style={{marginBottom:10}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Slid-status</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -268,7 +274,6 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
             ))}
           </div>
         </div>
-
         <div style={{marginBottom:10}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Farve</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
@@ -284,7 +289,6 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
             )}
           </div>
         </div>
-
         <div style={{display:"flex",gap:10,marginBottom:10}}>
           <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:11,color:C.muted,flex:"0 0 80px"}}>
             Vægt (g)
@@ -301,7 +305,6 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
                 border:`1px solid ${C.line}`,color:C.text,fontSize:13,width:"100%"}}/>
           </label>
         </div>
-
         <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:11,color:C.muted}}>
           Note
           <input type="text" value={vals.pNote}
@@ -310,7 +313,6 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
               border:`1px solid ${C.line}`,color:C.text,fontSize:13,width:"100%"}}/>
         </label>
       </div>
-
       <div style={{display:"flex",gap:8,marginTop:4}}>
         <button onClick={()=>onSave(vals)} style={miniBtn(C.brand)}>Gem</button>
         {override&&<button onClick={onClear} style={miniBtn(C.distance)}>Nulstil</button>}
@@ -327,14 +329,22 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
       <div style={{display:"flex",alignItems:"center",gap:12,padding:12,
         background:C.surface,border:`1px solid ${isEditing?C.brand:C.line}`,
         borderRadius:isEditing?"14px 14px 0 0":14}}>
-        <div style={{width:56,flexShrink:0}}>
-          {disc.pPhoto?(
+        {disc.pPhoto&&(
+          <div style={{width:56,flexShrink:0}}>
             <img src={disc.pPhoto} alt={disc.name}
               style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:`1px solid ${C.line}`}}/>
-          ):(
-            <FlightChart discs={[disc]} hand="R" height={70} showLabels={false}/>
-          )}
-        </div>
+          </div>
+        )}
+        {!disc.pPhoto&&(
+          <div style={{width:44,height:44,flexShrink:0,borderRadius:10,
+            background:`${disc.pColor||TYPE_COLOR[disc.type]}22`,
+            border:`1px solid ${disc.pColor||TYPE_COLOR[disc.type]}55`,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{fontSize:18,fontWeight:800,color:disc.pColor||TYPE_COLOR[disc.type],lineHeight:1}}>
+              {disc.type[0]}
+            </span>
+          </div>
+        )}
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
             <span style={{width:10,height:10,borderRadius:"50%",flexShrink:0,
@@ -622,9 +632,7 @@ function SharedBagView({bag,onClose,onAddAll}){
             </div>
           </section>
         ))}
-        <button onClick={onClose} style={{...btn("ghost"),width:"100%",marginTop:10}}>
-          Åbn min bag
-        </button>
+        <button onClick={onClose} style={{...btn("ghost"),width:"100%",marginTop:10}}>Åbn min bag</button>
       </div>
     </div>
   );
@@ -665,29 +673,29 @@ export default function App(){
     (async()=>{
       let ownedIds=[];
       try{
-        let res=await window.storage?.get("owned");
+        let res=await store.get("owned");
         if(res?.value){ownedIds=JSON.parse(res.value);}
-        else{const legacy=await window.storage?.get("bag").catch(()=>null);
+        else{const legacy=await store.get("bag").catch(()=>null);
           if(legacy?.value){ownedIds=JSON.parse(legacy.value);
-            await window.storage.set("owned",JSON.stringify(ownedIds)).catch(()=>{});}}
+            await store.set("owned",JSON.stringify(ownedIds)).catch(()=>{});}}
       }catch(_){}
       setOwned(ownedIds);
       let bagsList=null;
-      try{const res=await window.storage?.get("bags");if(res?.value)bagsList=JSON.parse(res.value);}catch(_){}
+      try{const res=await store.get("bags");if(res?.value)bagsList=JSON.parse(res.value);}catch(_){}
       if(bagsList===null){
         bagsList=ownedIds.length>0?[{id:genId(),name:"Min bag",discIds:[...ownedIds]}]:[];
-        window.storage?.set("bags",JSON.stringify(bagsList)).catch(()=>{});
+        store.set("bags",JSON.stringify(bagsList)).catch(()=>{});
       }
       setBags(bagsList);setDataLoaded(true);
     })();
   },[]);
 
-  useEffect(()=>{if(dataLoaded)window.storage?.set("owned",JSON.stringify(owned)).catch(()=>{});},[owned,dataLoaded]);
+  useEffect(()=>{if(dataLoaded)store.set("owned",JSON.stringify(owned)).catch(()=>{});},[owned,dataLoaded]);
   useEffect(()=>{
-    (async()=>{try{const r=await window.storage?.get("overrides");if(r?.value)setOverrides(JSON.parse(r.value));}catch(_){}})();
+    (async()=>{try{const r=await store.get("overrides");if(r?.value)setOverrides(JSON.parse(r.value));}catch(_){}})();
   },[]);
-  useEffect(()=>{if(dataLoaded)window.storage?.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
-  useEffect(()=>{if(dataLoaded)window.storage?.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
+  useEffect(()=>{if(dataLoaded)store.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
+  useEffect(()=>{if(dataLoaded)store.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
   useEffect(()=>{setFlightSelected(null);},[flightSourceKey]);
   useEffect(()=>{
     if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey))setFlightSourceKey("owned");
@@ -759,8 +767,7 @@ export default function App(){
   function addAllFromShared(){
     if(!sharedBag)return;
     setOwned(o=>[...new Set([...o,...sharedBag.discs.map(d=>d.id)])]);
-    setSharedBag(null);
-    window.history.replaceState({},"",window.location.pathname);
+    setSharedBag(null);window.history.replaceState({},"",window.location.pathname);
   }
 
   if(sharedBag)return(
