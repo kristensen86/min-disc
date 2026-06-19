@@ -324,26 +324,34 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
 
 function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=null,onSave=null,onClear=null}){
   const hasOverride=!!override;
+  const[showBane,setShowBane]=useState(false);
+  const open=isEditing||showBane;
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:12,padding:12,
-        background:C.surface,border:`1px solid ${isEditing?C.brand:C.line}`,
-        borderRadius:isEditing?"14px 14px 0 0":14}}>
+        background:C.surface,border:`1px solid ${isEditing?C.brand:showBane?C.brand+"80":C.line}`,
+        borderRadius:open?"14px 14px 0 0":14}}>
         {disc.pPhoto&&(
-          <div style={{width:56,flexShrink:0}}>
+          <button onClick={()=>setShowBane(v=>!v)} style={{
+            width:56,flexShrink:0,padding:0,border:"none",background:"transparent",cursor:"pointer",borderRadius:10}}>
             <img src={disc.pPhoto} alt={disc.name}
-              style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:`1px solid ${C.line}`}}/>
-          </div>
+              style={{width:56,height:56,borderRadius:10,objectFit:"cover",
+                border:`1px solid ${showBane?C.brand:C.line}`,display:"block"}}/>
+          </button>
         )}
         {!disc.pPhoto&&(
-          <div style={{width:44,height:44,flexShrink:0,borderRadius:10,
+          <button onClick={()=>setShowBane(v=>!v)} style={{
+            width:44,height:44,flexShrink:0,borderRadius:10,padding:0,cursor:"pointer",
             background:`${disc.pColor||TYPE_COLOR[disc.type]}22`,
-            border:`1px solid ${disc.pColor||TYPE_COLOR[disc.type]}55`,
-            display:"flex",alignItems:"center",justifyContent:"center"}}>
+            border:`1px solid ${showBane?(disc.pColor||TYPE_COLOR[disc.type]):(disc.pColor||TYPE_COLOR[disc.type])+"55"}`,
+            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
             <span style={{fontSize:18,fontWeight:800,color:disc.pColor||TYPE_COLOR[disc.type],lineHeight:1}}>
               {disc.type[0]}
             </span>
-          </div>
+            <span style={{fontSize:7,color:disc.pColor||TYPE_COLOR[disc.type],opacity:0.7,letterSpacing:"0.03em"}}>
+              {showBane?"luk":"bane"}
+            </span>
+          </button>
         )}
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
@@ -382,6 +390,23 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
           </button>
         ))}
       </div>
+      {showBane&&!isEditing&&(
+        <div style={{
+          borderLeft:`1px solid ${C.brand}80`,
+          borderRight:`1px solid ${C.brand}80`,
+          borderBottom:`1px solid ${C.brand}80`,
+          borderRadius:"0 0 14px 14px",
+          background:C.bg,padding:"4px 8px 8px",
+        }}>
+          <FlightChart discs={[disc]} hand="R" height={160} showLabels={true}/>
+          <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:4,fontSize:11,color:C.muted}}>
+            <span>S {disc.speed}</span>
+            <span>G {disc.glide}</span>
+            <span>T {disc.turn}</span>
+            <span>F {disc.fade}</span>
+          </div>
+        </div>
+      )}
       {isEditing&&(
         <FlightEditor disc={disc} override={override}
           onSave={onSave} onClear={onClear} onClose={onToggleEdit}/>
