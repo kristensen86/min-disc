@@ -72,7 +72,7 @@ const FALLBACK=RAW.map(([id,brand,name,speed,glide,turn,fade])=>({
 }));
 
 function resolveDisc(disc,overrides){
-  const ov=overrides[disc.id];
+  const ov=overrides[disc.uid??disc.id];
   return ov?{...disc,...ov}:disc;
 }
 
@@ -156,20 +156,31 @@ function FlightMatrix({discs,selectedId,onSelect}){
       <text x={padL} y={padT-7} fill={C.muted} fontSize="7">← Overstabil</text>
       <text x={W-padR} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">Understabil →</text>
       <text x={padL-4} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">S</text>
-      {discs.map(d=>{
-        const sx=getStab(d);
-        const x=mapX(Math.max(stabMin,Math.min(stabMax,sx)));
-        const y=mapY(Math.max(speedMin,Math.min(speedMax,d.speed)));
-        const isSel=d.id===selectedId;
-        const color=d.pColor||TYPE_COLOR[d.type];
-        return(
-          <g key={d.id} style={{cursor:"pointer"}} onClick={()=>onSelect(d.id===selectedId?null:d.id)}>
-            {isSel&&<circle cx={x} cy={y} r="11" fill="none" stroke={C.text} strokeWidth="1.5" opacity="0.5"/>}
-            <circle cx={x} cy={y} r={isSel?8:6} fill={color} fillOpacity={isSel?1:0.88} stroke={C.bg} strokeWidth="1.2"/>
-            <text x={x} y={y+(isSel?22:19)} fill={isSel?C.text:C.muted} fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
-          </g>
-        );
-      })}
+      {(()=>{
+        const dkey=d=>d.uid??d.id;
+        const pts=discs.map(d=>{
+          const sx=getStab(d);
+          return{x:mapX(Math.max(stabMin,Math.min(stabMax,sx))),y:mapY(Math.max(speedMin,Math.min(speedMax,d.speed))),d};
+        });
+        const placed=pts.map((p,i)=>{
+          const cluster=pts.filter(q=>Math.abs(q.x-p.x)<2&&Math.abs(q.y-p.y)<2);
+          if(cluster.length===1)return{...p,jx:p.x,jy:p.y};
+          const idx=cluster.indexOf(p),total=cluster.length;
+          const angle=(idx/total)*2*Math.PI-Math.PI/2;
+          return{...p,jx:p.x+Math.cos(angle)*10,jy:p.y+Math.sin(angle)*10};
+        });
+        return placed.map(({jx,jy,d})=>{
+          const isSel=dkey(d)===selectedId;
+          const color=d.pColor||TYPE_COLOR[d.type];
+          return(
+            <g key={dkey(d)} style={{cursor:"pointer"}} onClick={()=>onSelect(dkey(d)===selectedId?null:dkey(d))}>
+              {isSel&&<circle cx={jx} cy={jy} r="11" fill="none" stroke={C.text} strokeWidth="1.5" opacity="0.5"/>}
+              <circle cx={jx} cy={jy} r={isSel?8:6} fill={color} fillOpacity={isSel?1:0.88} stroke={C.bg} strokeWidth="1.2"/>
+              <text x={jx} y={jy+(isSel?22:19)} fill={isSel?C.text:C.muted} fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
+            </g>
+          );
+        });
+      })()}
     </svg>
   );
 }
@@ -385,9 +396,14 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
             style={{...iconBtn(isEditing?C.brand:C.muted),fontSize:16}}>✎</button>
         )}
         {actions.map((a,i)=>(
-          <button key={i} onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color||C.muted)}>
-            <a.icon size={16} {...(a.iconProps||{})}/>
-          </button>
+          <div key={i} style={{position:"relative",display:"inline-flex",flexShrink:0}}>
+            <button onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color||C.muted)}>
+              <a.icon size={16} {...(a.iconProps||{})}/>
+            </button>
+            {a.badge!=null&&<span style={{position:"absolute",top:-5,right:-5,
+              background:C.brand,color:C.bg,fontSize:9,fontWeight:700,
+              padding:"1px 4px",borderRadius:999,lineHeight:1.4,pointerEvents:"none"}}>{a.badge}</span>}
+          </div>
         ))}
       </div>
       {showBane&&!isEditing&&(
@@ -681,7 +697,7 @@ export default function App(){
   const[flightSourceKey,setFlightSourceKey]=useState("owned");
   const[flightSelected,setFlightSelected]=useState(null);
   const[overrides,setOverrides]=useState({});
-  const[editingDiscId,setEditingDiscId]=useState(null);
+  const[editingDiscUid,setEditingDiscUid]=useState(null);
   const[wishlist,setWishlist]=useState([]);
   const[showOnlyWishlist,setShowOnlyWishlist]=useState(false);
   const[sharedBag,setSharedBag]=useState(()=>{
@@ -699,18 +715,40 @@ export default function App(){
   useEffect(()=>{
     (async()=>{
       let ownedIds=[];
+      let loadedOverrides={};
       try{
-        let res=await store.get("owned");
-        if(res?.value){ownedIds=JSON.parse(res.value);}
-        else{const legacy=await store.get("bag").catch(()=>null);
-          if(legacy?.value){ownedIds=JSON.parse(legacy.value);
-            await store.set("owned",JSON.stringify(ownedIds)).catch(()=>{});}}
+        const res=await store.get("owned");
+        if(res?.value){
+          const raw=JSON.parse(res.value);
+          if(raw.length>0&&typeof raw[0]==="string"){
+            // Migrate: string[] → {uid,discId}[]
+            ownedIds=raw.map(discId=>({uid:genId(),discId}));
+            try{const rov=await store.get("overrides");if(rov?.value)loadedOverrides=JSON.parse(rov.value);}catch(_){}
+            // Migrate overrides from discId-keys to uid-keys
+            const migOv={};
+            ownedIds.forEach(({uid,discId})=>{if(loadedOverrides[discId])migOv[uid]=loadedOverrides[discId];});
+            loadedOverrides=migOv;
+            store.set("owned",JSON.stringify(ownedIds)).catch(()=>{});
+            store.set("overrides",JSON.stringify(migOv)).catch(()=>{});
+          }else{
+            ownedIds=raw;
+            try{const rov=await store.get("overrides");if(rov?.value)loadedOverrides=JSON.parse(rov.value);}catch(_){}
+          }
+        }else{
+          const legacy=await store.get("bag").catch(()=>null);
+          if(legacy?.value){
+            ownedIds=JSON.parse(legacy.value).map(discId=>({uid:genId(),discId}));
+            await store.set("owned",JSON.stringify(ownedIds)).catch(()=>{});
+          }
+        }
       }catch(_){}
       setOwned(ownedIds);
+      setOverrides(loadedOverrides);
       let bagsList=null;
       try{const res=await store.get("bags");if(res?.value)bagsList=JSON.parse(res.value);}catch(_){}
       if(bagsList===null){
-        bagsList=ownedIds.length>0?[{id:genId(),name:"Min bag",discIds:[...ownedIds]}]:[];
+        const uniqueDiscIds=[...new Set(ownedIds.map(x=>x.discId))];
+        bagsList=uniqueDiscIds.length>0?[{id:genId(),name:"Min bag",discIds:uniqueDiscIds}]:[];
         store.set("bags",JSON.stringify(bagsList)).catch(()=>{});
       }
       setBags(bagsList);
@@ -722,9 +760,6 @@ export default function App(){
   },[]);
 
   useEffect(()=>{if(dataLoaded)store.set("owned",JSON.stringify(owned)).catch(()=>{});},[owned,dataLoaded]);
-  useEffect(()=>{
-    (async()=>{try{const r=await store.get("overrides");if(r?.value)setOverrides(JSON.parse(r.value));}catch(_){}})();
-  },[]);
   useEffect(()=>{if(dataLoaded)store.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("wishlist",JSON.stringify(wishlist)).catch(()=>{});},[wishlist,dataLoaded]);
@@ -733,7 +768,7 @@ export default function App(){
     if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey))setFlightSourceKey("owned");
   },[bags,flightSourceKey]);
 
-  const ownedDiscs=useMemo(()=>owned.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean),[owned,allDiscs]);
+  const ownedDiscs=useMemo(()=>owned.map(({uid,discId})=>{const disc=allDiscs.find(d=>d.id===discId);return disc?{...disc,uid}:null;}).filter(Boolean),[owned,allDiscs]);
   const resolvedOwned=useMemo(()=>ownedDiscs.map(d=>resolveDisc(d,overrides)),[ownedDiscs,overrides]);
   const brands=useMemo(()=>["Alle",...[...new Set(allDiscs.map(d=>d.brand))].sort()],[allDiscs]);
   const filtered=useMemo(()=>{
@@ -753,15 +788,15 @@ export default function App(){
     if(!bag)return[];
     return bag.discIds.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean).map(d=>resolveDisc(d,overrides));
   },[flightSourceKey,resolvedOwned,bags,allDiscs,overrides]);
-  const flightSelectedDisc=flightDiscs.find(d=>d.id===flightSelected)||null;
+  const flightSelectedDisc=flightDiscs.find(d=>(d.uid??d.id)===flightSelected)||null;
 
-  const addToOwned=id=>setOwned(o=>o.includes(id)?o:[...o,id]);
-  const removeFromOwned=id=>setOwned(o=>o.filter(x=>x!==id));
+  const addToOwned=id=>setOwned(o=>[...o,{uid:genId(),discId:id}]);
+  const removeFromOwned=uid=>setOwned(o=>o.filter(x=>x.uid!==uid));
   const addToWishlist=id=>setWishlist(w=>w.includes(id)?w:[...w,id]);
   const removeFromWishlist=id=>setWishlist(w=>w.filter(x=>x!==id));
 
-  function saveOverride(discId,vals){setOverrides(o=>({...o,[discId]:vals}));setEditingDiscId(null);}
-  function clearOverride(discId){setOverrides(o=>{const n={...o};delete n[discId];return n;});setEditingDiscId(null);}
+  function saveOverride(uid,vals){setOverrides(o=>({...o,[uid]:vals}));setEditingDiscUid(null);}
+  function clearOverride(uid){setOverrides(o=>{const n={...o};delete n[uid];return n;});setEditingDiscUid(null);}
 
   function shareBag(bag){
     const encoded=encodeBag(bag,allDiscs);
@@ -801,7 +836,11 @@ export default function App(){
 
   function addAllFromShared(){
     if(!sharedBag)return;
-    setOwned(o=>[...new Set([...o,...sharedBag.discs.map(d=>d.id)])]);
+    setOwned(o=>{
+      const existingIds=new Set(o.map(x=>x.discId));
+      const newItems=sharedBag.discs.filter(d=>!existingIds.has(d.id)).map(d=>({uid:genId(),discId:d.id}));
+      return[...o,...newItems];
+    });
     setSharedBag(null);window.history.replaceState({},"",window.location.pathname);
   }
 
@@ -900,18 +939,20 @@ export default function App(){
               {filtered.length.toLocaleString("da")} discs{filtered.length>visibleCount&&` — viser ${visibleCount}`}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {filtered.slice(0,visibleCount).map(d=>(
+              {filtered.slice(0,visibleCount).map(d=>{
+                const count=owned.filter(x=>x.discId===d.id).length;
+                return(
                 <DiscCard key={d.id} disc={d} actions={[
-                  owned.includes(d.id)
-                    ?{icon:Trash2,label:"Fjern fra mine discs",onClick:()=>removeFromOwned(d.id),color:C.distance}
-                    :{icon:Plus,label:"Tilføj til mine discs",onClick:()=>addToOwned(d.id),color:C.brand},
+                  {icon:Plus,badge:count>0?count:null,
+                   label:"Tilføj til mine discs",onClick:()=>addToOwned(d.id),
+                   color:count>0?C.midrange:C.brand},
                   {icon:Heart,
                    iconProps:wishlist.includes(d.id)?{fill:"currentColor"}:{},
                    label:wishlist.includes(d.id)?"Fjern fra ønskeliste":"Tilføj til ønskeliste",
                    onClick:()=>wishlist.includes(d.id)?removeFromWishlist(d.id):addToWishlist(d.id),
                    color:wishlist.includes(d.id)?C.distance:C.muted}
-                ]}/>
-              ))}
+                ]}/>);
+              })}
               {filtered.length===0&&<Empty text="Ingen discs matcher din søgning."/>}
             </div>
             {filtered.length>visibleCount&&(
@@ -936,13 +977,13 @@ export default function App(){
                     {ownedDiscs.filter(d=>d.type===t).map(d=>{
                       const rd=resolveDisc(d,overrides);
                       return(
-                        <DiscCard key={d.id} disc={rd}
-                          isEditing={editingDiscId===d.id}
-                          onToggleEdit={()=>setEditingDiscId(editingDiscId===d.id?null:d.id)}
-                          override={overrides[d.id]||null}
-                          onSave={vals=>saveOverride(d.id,vals)}
-                          onClear={()=>clearOverride(d.id)}
-                          actions={[{icon:Trash2,label:"Fjern fra mine discs",onClick:()=>removeFromOwned(d.id),color:C.distance}]}/>
+                        <DiscCard key={d.uid} disc={rd}
+                          isEditing={editingDiscUid===d.uid}
+                          onToggleEdit={()=>setEditingDiscUid(editingDiscUid===d.uid?null:d.uid)}
+                          override={overrides[d.uid]||null}
+                          onSave={vals=>saveOverride(d.uid,vals)}
+                          onClear={()=>clearOverride(d.uid)}
+                          actions={[{icon:Trash2,label:"Fjern fra mine discs",onClick:()=>removeFromOwned(d.uid),color:C.distance}]}/>
                       );
                     })}
                   </div>
