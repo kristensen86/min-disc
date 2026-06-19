@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, Disc3, AlertCircle, Loader, Heart } from "lucide-react";
+import { Search, Plus, X, Trash2, Disc3, AlertCircle, Loader, Heart, LogOut } from "lucide-react";
+import { supabase, getUser, setUser } from "./supabase";
 
 const C = {
   bg:"#0f1714",surface:"#18241f",raised:"#1f3029",line:"#2c4036",
@@ -43,11 +44,27 @@ const store={
     if(typeof window!=="undefined"&&window.storage){
       try{return await window.storage.get(key);}catch{return null;}
     }
+    const user=getUser();
+    if(supabase&&user){
+      try{
+        const{data}=await supabase.from("user_data").select("value")
+          .eq("user_id",user.id).eq("key",key).maybeSingle();
+        return data?{value:data.value}:null;
+      }catch{return null;}
+    }
     try{const v=localStorage.getItem("md_"+key);return v?{value:v}:null;}catch{return null;}
   },
   async set(key,value){
     if(typeof window!=="undefined"&&window.storage){
       try{return await window.storage.set(key,value);}catch{return null;}
+    }
+    const user=getUser();
+    if(supabase&&user){
+      try{
+        await supabase.from("user_data")
+          .upsert({user_id:user.id,key,value},{onConflict:"user_id,key"});
+        return{value};
+      }catch{return null;}
     }
     try{localStorage.setItem("md_"+key,value);return{value};}catch{return null;}
   },
@@ -679,7 +696,89 @@ function SharedBagView({bag,onClose,onAddAll}){
   );
 }
 
+function LoginScreen(){
+  const[mode,setMode]=useState("login");
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[error,setError]=useState("");
+  const[info,setInfo]=useState("");
+
+  async function submit(e){
+    e.preventDefault();
+    setLoading(true);setError("");setInfo("");
+    if(mode==="login"){
+      const{error:err}=await supabase.auth.signInWithPassword({email,password});
+      if(err)setError(err.message);
+    }else{
+      const{error:err}=await supabase.auth.signUp({email,password});
+      if(err)setError(err.message);
+      else setInfo("Tjek din email og klik bekræftelseslinket for at aktivere din konto.");
+    }
+    setLoading(false);
+  }
+
+  const inp={
+    width:"100%",padding:"12px 14px",borderRadius:10,
+    background:C.raised,border:`1px solid ${C.line}`,
+    color:C.text,fontSize:15,outline:"none",
+  };
+
+  return(
+    <div style={{background:C.bg,minHeight:"100vh",display:"flex",
+      alignItems:"center",justifyContent:"center",padding:20,
+      fontFamily:"Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Pacifico&family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box;}input::placeholder{color:${C.muted};}input:focus{border-color:${C.brand}!important;}`}</style>
+      <div style={{width:"100%",maxWidth:360}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:32,justifyContent:"center"}}>
+          <Disc3 size={28} color={C.brand}/>
+          <span style={{fontFamily:"Pacifico,cursive",fontSize:32,color:C.text,lineHeight:1}}>Min Disc</span>
+        </div>
+        <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:16,padding:24}}>
+          <div style={{display:"flex",gap:0,marginBottom:20,
+            background:C.raised,borderRadius:9,padding:3}}>
+            {[["login","Log ind"],["signup","Opret konto"]].map(([k,l])=>(
+              <button key={k} onClick={()=>{setMode(k);setError("");setInfo("");}} style={{
+                flex:1,padding:"8px 0",borderRadius:7,cursor:"pointer",fontSize:13,fontWeight:600,
+                border:"none",background:mode===k?C.surface:"transparent",
+                color:mode===k?C.text:C.muted}}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <form onSubmit={submit} style={{display:"flex",flexDirection:"column",gap:12}}>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+              placeholder="Email" required autoComplete="email" style={inp}/>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+              placeholder="Adgangskode" required minLength={6} autoComplete={mode==="login"?"current-password":"new-password"} style={inp}/>
+            {error&&(
+              <div style={{fontSize:13,color:C.distance,padding:"8px 12px",
+                background:`${C.distance}15`,borderRadius:8,border:`1px solid ${C.distance}30`}}>
+                {error}
+              </div>
+            )}
+            {info&&(
+              <div style={{fontSize:13,color:C.midrange,padding:"8px 12px",
+                background:`${C.midrange}15`,borderRadius:8,border:`1px solid ${C.midrange}30`}}>
+                {info}
+              </div>
+            )}
+            <button type="submit" disabled={loading} style={{
+              padding:"12px 0",borderRadius:10,cursor:loading?"not-allowed":"pointer",
+              fontSize:15,fontWeight:600,border:`1px solid ${C.brand}`,
+              background:loading?C.raised:C.raised,color:loading?C.muted:C.text,marginTop:4}}>
+              {loading?"Vent…":mode==="login"?"Log ind":"Opret konto"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
+  const[authUser,setAuthUser]=useState(null);
+  const[authLoading,setAuthLoading]=useState(true);
   const[allDiscs,setAllDiscs]=useState([]);
   const[discsLoading,setDiscsLoading]=useState(true);
   const[usingFallback,setFallback]=useState(false);
@@ -705,6 +804,25 @@ export default function App(){
     catch{return null;}
   });
 
+  // Auth: check session on mount and listen for changes
+  useEffect(()=>{
+    if(!supabase){setAuthLoading(false);return;}
+    supabase.auth.getSession().then(({data:{session}})=>{
+      const u=session?.user??null;
+      setUser(u);setAuthUser(u);setAuthLoading(false);
+    });
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      const u=session?.user??null;
+      setUser(u);setAuthUser(u);
+      if(!u){
+        // Clear data on logout so save effects don't fire with stale state
+        setDataLoaded(false);
+        setOwned([]);setBags([]);setOverrides({});setWishlist([]);
+      }
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
   useEffect(()=>{
     fetch("/discs.json")
       .then(r=>{if(!r.ok)throw new Error("mangler");return r.json();})
@@ -712,29 +830,49 @@ export default function App(){
       .catch(()=>{setAllDiscs(FALLBACK);setFallback(true);setDiscsLoading(false);});
   },[]);
 
+  // Data loading — re-runs on login/logout
   useEffect(()=>{
+    if(authLoading)return;
+    setDataLoaded(false);
     (async()=>{
       let ownedIds=[];
       let loadedOverrides={};
       try{
-        const res=await store.get("owned");
+        let res=await store.get("owned");
+        // First Supabase login: migrate from localStorage
+        if(!res?.value&&authUser){
+          const lv=localStorage.getItem("md_owned");
+          if(lv)res={value:lv};
+        }
         if(res?.value){
           const raw=JSON.parse(res.value);
           if(raw.length>0&&typeof raw[0]==="string"){
             // Migrate: string[] → {uid,discId}[]
             ownedIds=raw.map(discId=>({uid:genId(),discId}));
-            try{const rov=await store.get("overrides");if(rov?.value)loadedOverrides=JSON.parse(rov.value);}catch(_){}
-            // Migrate overrides from discId-keys to uid-keys
-            const migOv={};
-            ownedIds.forEach(({uid,discId})=>{if(loadedOverrides[discId])migOv[uid]=loadedOverrides[discId];});
-            loadedOverrides=migOv;
+            let ovRes=await store.get("overrides");
+            if(!ovRes?.value&&authUser){const lv=localStorage.getItem("md_overrides");if(lv)ovRes={value:lv};}
+            if(ovRes?.value){
+              try{
+                const rawOv=JSON.parse(ovRes.value);
+                const discIdSet=new Set(ownedIds.map(x=>x.discId));
+                const firstKey=Object.keys(rawOv)[0];
+                if(firstKey&&discIdSet.has(firstKey)){
+                  // Old discId-keyed overrides → uid-keyed
+                  const migOv={};
+                  ownedIds.forEach(({uid,discId})=>{if(rawOv[discId])migOv[uid]=rawOv[discId];});
+                  loadedOverrides=migOv;
+                }else{loadedOverrides=rawOv;}
+              }catch(_){}
+            }
             store.set("owned",JSON.stringify(ownedIds)).catch(()=>{});
-            store.set("overrides",JSON.stringify(migOv)).catch(()=>{});
+            store.set("overrides",JSON.stringify(loadedOverrides)).catch(()=>{});
           }else{
             ownedIds=raw;
-            try{const rov=await store.get("overrides");if(rov?.value)loadedOverrides=JSON.parse(rov.value);}catch(_){}
+            let ovRes=await store.get("overrides");
+            if(!ovRes?.value&&authUser){const lv=localStorage.getItem("md_overrides");if(lv)ovRes={value:lv};}
+            try{if(ovRes?.value)loadedOverrides=JSON.parse(ovRes.value);}catch(_){}
           }
-        }else{
+        }else if(!authUser){
           const legacy=await store.get("bag").catch(()=>null);
           if(legacy?.value){
             ownedIds=JSON.parse(legacy.value).map(discId=>({uid:genId(),discId}));
@@ -745,7 +883,11 @@ export default function App(){
       setOwned(ownedIds);
       setOverrides(loadedOverrides);
       let bagsList=null;
-      try{const res=await store.get("bags");if(res?.value)bagsList=JSON.parse(res.value);}catch(_){}
+      try{
+        let res=await store.get("bags");
+        if(!res?.value&&authUser){const lv=localStorage.getItem("md_bags");if(lv)res={value:lv};}
+        if(res?.value)bagsList=JSON.parse(res.value);
+      }catch(_){}
       if(bagsList===null){
         const uniqueDiscIds=[...new Set(ownedIds.map(x=>x.discId))];
         bagsList=uniqueDiscIds.length>0?[{id:genId(),name:"Min bag",discIds:uniqueDiscIds}]:[];
@@ -753,11 +895,15 @@ export default function App(){
       }
       setBags(bagsList);
       let wishlistIds=[];
-      try{const res=await store.get("wishlist");if(res?.value)wishlistIds=JSON.parse(res.value);}catch(_){}
+      try{
+        let res=await store.get("wishlist");
+        if(!res?.value&&authUser){const lv=localStorage.getItem("md_wishlist");if(lv)res={value:lv};}
+        try{if(res?.value)wishlistIds=JSON.parse(res.value);}catch(_){}
+      }catch(_){}
       setWishlist(wishlistIds);
       setDataLoaded(true);
     })();
-  },[]);
+  },[authUser,authLoading]);
 
   useEffect(()=>{if(dataLoaded)store.set("owned",JSON.stringify(owned)).catch(()=>{});},[owned,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
@@ -850,6 +996,17 @@ export default function App(){
       onAddAll={addAllFromShared}/>
   );
 
+  if(authLoading)return(
+    <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",
+      justifyContent:"center",flexDirection:"column",gap:12}}>
+      <Loader size={28} color={C.brand} style={{animation:"spin 1s linear infinite"}}/>
+      <span style={{color:C.muted,fontSize:14}}>Logger ind…</span>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if(!authUser&&supabase)return <LoginScreen/>;
+
   if(discsLoading)return(
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",
       justifyContent:"center",flexDirection:"column",gap:12}}>
@@ -877,6 +1034,13 @@ export default function App(){
             background:C.surface,border:`1px solid ${C.line}`,padding:"5px 11px",borderRadius:999}}>
             {owned.length} ejet
           </span>
+          {authUser&&supabase&&(
+            <button onClick={()=>supabase.auth.signOut()} aria-label="Log ud"
+              title={authUser.email}
+              style={{...iconBtn(C.muted),flexShrink:0}}>
+              <LogOut size={15}/>
+            </button>
+          )}
         </header>
 
         {usingFallback&&(
