@@ -1,16 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, Plus, X, Trash2, Disc3, AlertCircle, Loader } from "lucide-react";
 
-/* =========================================================================
-   MIN DISC v2 — ejet samling + flere bags + random bag-generator + flight-matrix
-   -------------------------------------------------------------------------
-   Datamodel:
-     owned: string[]           — alle discs du ejer (din fulde samling)
-     bags:  {id,name,discIds}[] — navngivne bags, hver et udsnit af owned
-   Migrerer automatisk fra v1's enkelt-bag ("bag"-nøgle) første gang appen
-   åbnes efter opdateringen.
-   ========================================================================= */
-
 const C = {
   bg:"#0f1714",surface:"#18241f",raised:"#1f3029",line:"#2c4036",
   text:"#e8efe9",muted:"#8aa597",brand:"#f2c14e",
@@ -38,21 +28,22 @@ const FALLBACK=RAW.map(([id,brand,name,speed,glide,turn,fade])=>({
   id,brand,name,speed,glide,turn,fade,type:typeFromSpeed(speed),category:"",stability:"",pic:null,link:null,
 }));
 
+function resolveDisc(disc,overrides){
+  const ov=overrides[disc.id];
+  return ov?{...disc,...ov}:disc;
+}
+
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 function emptyGenForm(){
-  return {
-    name:"Tilfældig bag", preset:"none", balanced:true, total:8,
-    counts:{Putter:2,Midrange:2,Fairway:2,Distance:2},
-    minSpeed:1, maxSpeed:14, allowDup:false,
-  };
+  return{name:"Tilfældig bag",preset:"none",balanced:true,total:8,
+    counts:{Putter:2,Midrange:2,Fairway:2,Distance:2},minSpeed:1,maxSpeed:14,allowDup:false};
 }
 function splitEvenly(total){
-  const base=Math.floor(total/4), rem=total%4, counts={};
-  TYPES.forEach((t,i)=>{ counts[t]=base+(i<rem?1:0); });
+  const base=Math.floor(total/4),rem=total%4,counts={};
+  TYPES.forEach((t,i)=>{counts[t]=base+(i<rem?1:0);});
   return counts;
 }
 
-// ─── Flight-trace model (bruges til de små preview-baner på DiscCard) ──────
 function computePath(disc,hand,geom){
   const{W,H,padX,padTop,padBottom}=geom;const{speed,glide,turn,fade}=disc;
   const cx=W/2,usableH=H-padTop-padBottom,halfW=(W-padX*2)/2;
@@ -90,7 +81,6 @@ function FlightChart({discs,hand,height=320,showLabels=true}){
   );
 }
 
-// ─── Flight Matrix: Speed (lodret) × Stability (Turn+Fade) vandret ─────────
 function FlightMatrix({discs,selectedId,onSelect}){
   const W=300,H=460,padL=28,padR=8,padT=34,padB=44;
   const stabMin=-5,stabMax=5,speedMin=1,speedMax=14;
@@ -100,40 +90,29 @@ function FlightMatrix({discs,selectedId,onSelect}){
   const mapY=s=>padT+(speedMax-s)/(speedMax-speedMin)*plotH;
   const stabTicks=[5,4,3,2,1,0,-1,-2,-3,-4,-5];
   const speedTicks=[1,2,3,4,5,6,7,8,9,10,11,12,13,14];
-
   return(
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block"}}>
       <rect x="0" y="0" width={W} height={H} rx="12" fill={C.surface} stroke={C.line}/>
-
       {stabTicks.map(s=>(
         <line key={"v"+s} x1={mapX(s)} x2={mapX(s)} y1={padT} y2={H-padB}
-          stroke={s===0?C.brand:C.line}
-          strokeWidth={s===0?"1":"0.5"}
-          strokeDasharray={s===0?"4 3":undefined}
-          opacity={s===0?0.45:0.18}/>
+          stroke={s===0?C.brand:C.line} strokeWidth={s===0?"1":"0.5"}
+          strokeDasharray={s===0?"4 3":undefined} opacity={s===0?0.45:0.18}/>
       ))}
-
       {speedTicks.map(s=>(
         <line key={"h"+s} x1={padL} x2={W-padR} y1={mapY(s)} y2={mapY(s)}
           stroke={C.line} strokeWidth="0.5" opacity="0.18"/>
       ))}
-
       {stabTicks.map(s=>(
         <text key={"x"+s} x={mapX(s)} y={H-padB+13}
           fill={s===0?C.muted:"#3d5249"} fontSize="8" textAnchor="middle">{s}</text>
       ))}
-
       {speedTicks.filter(s=>s%2===0||s===1).map(s=>(
-        <text key={"y"+s} x={padL-4} y={mapY(s)+3}
-          fill={C.muted} fontSize="8" textAnchor="end">{s}</text>
+        <text key={"y"+s} x={padL-4} y={mapY(s)+3} fill={C.muted} fontSize="8" textAnchor="end">{s}</text>
       ))}
-
-      <text x={W/2} y={13} fill={C.muted} fontSize="9" textAnchor="middle"
-        style={{letterSpacing:"0.05em"}}>Stability (Turn + Fade)</text>
+      <text x={W/2} y={13} fill={C.muted} fontSize="9" textAnchor="middle" style={{letterSpacing:"0.05em"}}>Stability (Turn + Fade)</text>
       <text x={padL} y={padT-7} fill={C.muted} fontSize="7">← Overstabil</text>
       <text x={W-padR} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">Understabil →</text>
       <text x={padL-4} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">S</text>
-
       {discs.map(d=>{
         const sx=getStab(d);
         const x=mapX(Math.max(stabMin,Math.min(stabMax,sx)));
@@ -141,22 +120,17 @@ function FlightMatrix({discs,selectedId,onSelect}){
         const isSel=d.id===selectedId;
         const color=TYPE_COLOR[d.type];
         return(
-          <g key={d.id} style={{cursor:"pointer"}}
-            onClick={()=>onSelect(d.id===selectedId?null:d.id)}>
-            {isSel&&<circle cx={x} cy={y} r="11" fill="none"
-              stroke={C.text} strokeWidth="1.5" opacity="0.5"/>}
-            <circle cx={x} cy={y} r={isSel?8:6}
-              fill={color} fillOpacity={isSel?1:0.88}
-              stroke={C.bg} strokeWidth="1.2"/>
-            <text x={x} y={y+(isSel?22:19)}
-              fill={isSel?C.text:C.muted}
-              fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
+          <g key={d.id} style={{cursor:"pointer"}} onClick={()=>onSelect(d.id===selectedId?null:d.id)}>
+            {isSel&&<circle cx={x} cy={y} r="11" fill="none" stroke={C.text} strokeWidth="1.5" opacity="0.5"/>}
+            <circle cx={x} cy={y} r={isSel?8:6} fill={color} fillOpacity={isSel?1:0.88} stroke={C.bg} strokeWidth="1.2"/>
+            <text x={x} y={y+(isSel?22:19)} fill={isSel?C.text:C.muted} fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
           </g>
         );
       })}
     </svg>
   );
 }
+
 function FlightBadge({disc}){
   return(
     <div style={{display:"flex",gap:4}}>
@@ -179,33 +153,81 @@ function StabilityPill({stability}){
   const[color,label]=map[stability]??[C.muted,stability];
   return(
     <span style={{fontSize:11,padding:"2px 7px",borderRadius:999,
-      border:`1px solid ${color}30`,color,background:`${color}15`}}>
-      {label}
-    </span>
+      border:`1px solid ${color}30`,color,background:`${color}15`}}>{label}</span>
   );
 }
 
-function DiscCard({disc,actions=[]}){
+function miniBtn(color){
+  return{padding:"7px 12px",borderRadius:9,cursor:"pointer",
+    background:"transparent",border:`1px solid ${color}`,color,fontSize:12,fontWeight:600};
+}
+
+function FlightEditor({disc,override,onSave,onClear,onClose}){
+  const cur={...disc,...(override||{})};
+  const[vals,setVals]=useState({speed:cur.speed,glide:cur.glide,turn:cur.turn,fade:cur.fade});
   return(
-    <div style={{display:"flex",alignItems:"center",gap:12,padding:12,
-      background:C.surface,border:`1px solid ${C.line}`,borderRadius:14}}>
-      <div style={{width:56,flexShrink:0}}>
-        <FlightChart discs={[disc]} hand="R" height={70} showLabels={false}/>
+    <div style={{padding:"12px 14px",background:C.raised,
+      border:`1px solid ${C.brand}40`,borderRadius:"0 0 14px 14px",marginTop:-2}}>
+      <div style={{fontSize:12,color:C.muted,marginBottom:10}}>
+        Rediger flight-tal for <strong style={{color:C.text}}>{disc.name}</strong>
+        {override&&<span style={{color:C.brand,marginLeft:6}}>· tilpasset</span>}
       </div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:TYPE_COLOR[disc.type],flexShrink:0}}/>
-          <span style={{fontWeight:600,color:C.text}}>{disc.name}</span>
-          <StabilityPill stability={disc.stability}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12}}>
+        {[["Speed","speed",1,15,1],["Glide","glide",1,7,1],["Turn","turn",-5,1,0.5],["Fade","fade",0,5,0.5]].map(([label,key,min,max,step])=>(
+          <label key={key} style={{display:"flex",flexDirection:"column",gap:3,fontSize:11,color:C.muted}}>
+            {label}
+            <input type="number" inputMode="decimal" value={vals[key]} min={min} max={max} step={step}
+              onChange={e=>setVals(v=>({...v,[key]:Number(e.target.value)}))}
+              style={{padding:"6px 4px",textAlign:"center",borderRadius:8,background:C.surface,
+                color:C.text,fontSize:13,width:"100%",
+                border:`1px solid ${vals[key]!==disc[key]?C.brand:C.line}`}}/>
+            <span style={{fontSize:10,color:C.line,textAlign:"center"}}>std: {disc[key]}</span>
+          </label>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>onSave(vals)} style={miniBtn(C.brand)}>Gem</button>
+        {override&&<button onClick={onClear} style={miniBtn(C.distance)}>Nulstil</button>}
+        <button onClick={onClose} style={miniBtn(C.muted)}>Luk</button>
+      </div>
+    </div>
+  );
+}
+
+function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=null,onSave=null,onClear=null}){
+  const hasOverride=!!override;
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:12,padding:12,
+        background:C.surface,border:`1px solid ${isEditing?C.brand:C.line}`,
+        borderRadius:isEditing?"14px 14px 0 0":14}}>
+        <div style={{width:56,flexShrink:0}}>
+          <FlightChart discs={[disc]} hand="R" height={70} showLabels={false}/>
         </div>
-        <div style={{color:C.muted,fontSize:13,marginBottom:8}}>{disc.brand} · {disc.type}</div>
-        <FlightBadge disc={disc}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:TYPE_COLOR[disc.type],flexShrink:0}}/>
+            <span style={{fontWeight:600,color:C.text}}>{disc.name}</span>
+            {hasOverride&&<span style={{fontSize:10,color:C.brand}}>✎</span>}
+            <StabilityPill stability={disc.stability}/>
+          </div>
+          <div style={{color:C.muted,fontSize:13,marginBottom:8}}>{disc.brand} · {disc.type}</div>
+          <FlightBadge disc={disc}/>
+        </div>
+        {onToggleEdit&&(
+          <button onClick={onToggleEdit} aria-label="Rediger flight-tal"
+            style={{...iconBtn(isEditing?C.brand:C.muted),fontSize:16}}>✎</button>
+        )}
+        {actions.map((a,i)=>(
+          <button key={i} onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color||C.muted)}>
+            <a.icon size={16}/>
+          </button>
+        ))}
       </div>
-      {actions.map((a,i)=>(
-        <button key={i} onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color||C.muted)}>
-          <a.icon size={16}/>
-        </button>
-      ))}
+      {isEditing&&(
+        <FlightEditor disc={disc} override={override}
+          onSave={onSave} onClear={onClear} onClose={onToggleEdit}/>
+      )}
     </div>
   );
 }
@@ -240,9 +262,7 @@ function Segmented({options,value,onChange}){
           padding:"7px 12px",borderRadius:9,cursor:"pointer",fontSize:12.5,fontWeight:600,
           border:`1px solid ${value===key?C.brand:C.line}`,
           background:value===key?C.raised:"transparent",
-          color:value===key?C.text:C.muted}}>
-          {label}
-        </button>
+          color:value===key?C.text:C.muted}}>{label}</button>
       ))}
     </div>
   );
@@ -260,29 +280,22 @@ function NumberField({label,value,onChange,min=0,max=99}){
   );
 }
 
-// ─── Random bag-generator ───────────────────────────────────────────────────
 function GeneratorPanel({ownedDiscs,onSave,onCancel}){
   const[form,setForm]=useState(emptyGenForm());
   const[preview,setPreview]=useState(null);
   const patch=p=>setForm(f=>({...f,...p}));
-
   function applyPreset(preset){
-    const presets={
-      none:{minSpeed:1,maxSpeed:14}, skov:{minSpeed:1,maxSpeed:9},
-      aaben:{minSpeed:4,maxSpeed:14}, blaesende:{minSpeed:1,maxSpeed:11},
-      begynder:{minSpeed:1,maxSpeed:9},
-    };
+    const presets={none:{minSpeed:1,maxSpeed:14},skov:{minSpeed:1,maxSpeed:9},
+      aaben:{minSpeed:4,maxSpeed:14},blaesende:{minSpeed:1,maxSpeed:11},begynder:{minSpeed:1,maxSpeed:9}};
     patch({preset,...(presets[preset]||{})});
   }
-
   function generate(){
     const candidates=ownedDiscs.filter(d=>d.speed>=form.minSpeed&&d.speed<=form.maxSpeed);
     const counts=form.balanced?splitEvenly(form.total):form.counts;
     const bias=form.preset==="blaesende"?"stable":form.preset==="begynder"?"easy":"none";
     const picked=[],warnings=[];
     for(const type of TYPES){
-      const need=counts[type]||0;
-      if(need<=0)continue;
+      const need=counts[type]||0;if(need<=0)continue;
       let pool=candidates.filter(d=>d.type===type);
       if(bias==="stable")pool=[...pool].sort((a,b)=>(b.fade-b.turn)-(a.fade-a.turn));
       if(bias==="easy")pool=[...pool].sort((a,b)=>(Math.abs(a.turn)+a.fade)-(Math.abs(b.turn)+b.fade));
@@ -290,21 +303,16 @@ function GeneratorPanel({ownedDiscs,onSave,onCancel}){
       const available=[...pool];
       for(let i=0;i<need;i++){
         if(available.length===0){
-          if(form.allowDup&&pool.length>0){
-            picked.push(pool[Math.floor(Math.random()*pool.length)]);
-          }else{
-            warnings.push(`Kun ${i} af ${need} ${type.toLowerCase()} fundet`);
-            break;
-          }
+          if(form.allowDup&&pool.length>0){picked.push(pool[Math.floor(Math.random()*pool.length)]);}
+          else{warnings.push(`Kun ${i} af ${need} ${type.toLowerCase()} fundet`);break;}
           continue;
         }
         const idx=Math.floor(Math.random()*available.length);
-        picked.push(available[idx]); available.splice(idx,1);
+        picked.push(available[idx]);available.splice(idx,1);
       }
     }
     setPreview({discs:picked,warnings});
   }
-
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14,padding:14,
       background:C.surface,border:`1px solid ${C.line}`,borderRadius:14}}>
@@ -314,9 +322,8 @@ function GeneratorPanel({ownedDiscs,onSave,onCancel}){
           style={{width:"100%",padding:"10px 12px",background:C.raised,
             border:`1px solid ${C.line}`,borderRadius:9,color:C.text,fontSize:14}}/>
       </div>
-
       <div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Bane-type (forudfylder fornuftige værdier)</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Bane-type</div>
         <select value={form.preset} onChange={e=>applyPreset(e.target.value)}
           style={{width:"100%",padding:"10px 12px",background:C.raised,
             border:`1px solid ${C.line}`,borderRadius:9,color:C.text,fontSize:14}}>
@@ -327,13 +334,11 @@ function GeneratorPanel({ownedDiscs,onSave,onCancel}){
           <option value="begynder">Begynder-runde</option>
         </select>
       </div>
-
       <div>
         <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Fordeling</div>
         <Segmented options={[["true","Balanceret"],["false","Brugerdefineret"]]}
           value={String(form.balanced)} onChange={v=>patch({balanced:v==="true"})}/>
       </div>
-
       {form.balanced?(
         <NumberField label="Antal discs i alt" value={form.total} min={1} max={40} onChange={v=>patch({total:v})}/>
       ):(
@@ -344,27 +349,21 @@ function GeneratorPanel({ownedDiscs,onSave,onCancel}){
           ))}
         </div>
       )}
-
       <div style={{display:"flex",gap:10}}>
         <NumberField label="Min. speed" value={form.minSpeed} min={1} max={15} onChange={v=>patch({minSpeed:v})}/>
         <NumberField label="Max. speed" value={form.maxSpeed} min={1} max={15} onChange={v=>patch({maxSpeed:v})}/>
       </div>
-
       <div>
         <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Tillad dubletter</div>
         <Segmented options={[["false","Nej"],["true","Ja"]]}
           value={String(form.allowDup)} onChange={v=>patch({allowDup:v==="true"})}/>
       </div>
-
       <button onClick={generate} style={btn("primary")}>🎲 Generér</button>
-
       {preview&&(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {preview.warnings.length>0&&(
-            <div style={{fontSize:12,color:C.brand}}>{preview.warnings.join(" · ")}</div>
-          )}
+          {preview.warnings.length>0&&<div style={{fontSize:12,color:C.brand}}>{preview.warnings.join(" · ")}</div>}
           {preview.discs.length===0?(
-            <Empty text="Ingen discs matchede kriterierne. Justér speed-interval eller antal."/>
+            <Empty text="Ingen discs matchede kriterierne."/>
           ):(
             <>
               <div style={{fontSize:13,color:C.muted}}>{preview.discs.length} discs valgt:</div>
@@ -384,13 +383,11 @@ function GeneratorPanel({ownedDiscs,onSave,onCancel}){
           )}
         </div>
       )}
-
       <button onClick={onCancel} style={btn("ghost")}>Annullér</button>
     </div>
   );
 }
 
-// ─── Bag-detalje (vis/redigér én bag) ───────────────────────────────────────
 function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,onRemoveDisc}){
   const[query,setQuery]=useState("");
   if(!bag)return <Empty text="Bag ikke fundet."/>;
@@ -398,7 +395,6 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
   const q=query.trim().toLowerCase();
   const searchResults=q?ownedDiscs.filter(d=>!bag.discIds.includes(d.id)&&
     (d.name+" "+d.brand).toLowerCase().includes(q)).slice(0,8):[];
-
   return(
     <div>
       <button onClick={onBack} style={btn("ghost")}>‹ Alle bags</button>
@@ -409,7 +405,6 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
           <button onClick={onDelete} style={{...btn("ghost"),color:C.distance}}>Slet</button>
         </div>
       </div>
-
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 12px",
         background:C.surface,border:`1px solid ${C.line}`,borderRadius:12,marginBottom:10}}>
         <Search size={16} color={C.muted}/>
@@ -417,9 +412,7 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
           placeholder="Søg i mine discs for at tilføje…"
           style={{flex:1,background:"transparent",border:"none",outline:"none",
             color:C.text,padding:"10px 0",fontSize:14}}/>
-        {query&&(
-          <button onClick={()=>setQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={14}/></button>
-        )}
+        {query&&<button onClick={()=>setQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={14}/></button>}
       </div>
       {searchResults.length>0&&(
         <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
@@ -434,7 +427,6 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
           ))}
         </div>
       )}
-
       {bagDiscs.length===0?(
         <Empty text="Denne bag er tom. Søg ovenfor for at tilføje discs fra din samling."/>
       ):(
@@ -454,28 +446,25 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
   );
 }
 
-// ─── Hoved-app ───────────────────────────────────────────────────────────
 export default function App(){
   const[allDiscs,setAllDiscs]=useState([]);
   const[discsLoading,setDiscsLoading]=useState(true);
   const[usingFallback,setFallback]=useState(false);
   const[dataLoaded,setDataLoaded]=useState(false);
-
   const[owned,setOwned]=useState([]);
   const[bags,setBags]=useState([]);
-
   const[tab,setTab]=useState("owned");
   const[query,setQuery]=useState("");
   const[typeFilter,setTypeFilter]=useState("Alle");
   const[brandFilter,setBrandFilter]=useState("Alle");
   const[visibleCount,setVisible]=useState(40);
-
   const[openBagId,setOpenBagId]=useState(null);
   const[showNewChoice,setShowNewChoice]=useState(false);
   const[showGenerator,setShowGenerator]=useState(false);
-
   const[flightSourceKey,setFlightSourceKey]=useState("owned");
   const[flightSelected,setFlightSelected]=useState(null);
+  const[overrides,setOverrides]=useState({});
+  const[editingDiscId,setEditingDiscId]=useState(null);
 
   useEffect(()=>{
     fetch("/discs.json")
@@ -489,42 +478,35 @@ export default function App(){
       let ownedIds=[];
       try{
         let res=await window.storage?.get("owned");
-        if(res?.value){
-          ownedIds=JSON.parse(res.value);
-        }else{
-          const legacy=await window.storage?.get("bag").catch(()=>null);
-          if(legacy?.value){
-            ownedIds=JSON.parse(legacy.value);
-            await window.storage.set("owned",JSON.stringify(ownedIds)).catch(()=>{});
-          }
-        }
+        if(res?.value){ownedIds=JSON.parse(res.value);}
+        else{const legacy=await window.storage?.get("bag").catch(()=>null);
+          if(legacy?.value){ownedIds=JSON.parse(legacy.value);
+            await window.storage.set("owned",JSON.stringify(ownedIds)).catch(()=>{});}}
       }catch(_){}
       setOwned(ownedIds);
-
       let bagsList=null;
-      try{
-        const res=await window.storage?.get("bags");
-        if(res?.value)bagsList=JSON.parse(res.value);
-      }catch(_){}
+      try{const res=await window.storage?.get("bags");if(res?.value)bagsList=JSON.parse(res.value);}catch(_){}
       if(bagsList===null){
         bagsList=ownedIds.length>0?[{id:genId(),name:"Min bag",discIds:[...ownedIds]}]:[];
         window.storage?.set("bags",JSON.stringify(bagsList)).catch(()=>{});
       }
-      setBags(bagsList);
-      setDataLoaded(true);
+      setBags(bagsList);setDataLoaded(true);
     })();
   },[]);
 
-  useEffect(()=>{ if(dataLoaded)window.storage?.set("owned",JSON.stringify(owned)).catch(()=>{}); },[owned,dataLoaded]);
-  useEffect(()=>{ if(dataLoaded)window.storage?.set("bags",JSON.stringify(bags)).catch(()=>{}); },[bags,dataLoaded]);
-  useEffect(()=>{ setFlightSelected(null); },[flightSourceKey]);
+  useEffect(()=>{if(dataLoaded)window.storage?.set("owned",JSON.stringify(owned)).catch(()=>{});},[owned,dataLoaded]);
   useEffect(()=>{
-    if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey)){
-      setFlightSourceKey("owned");
-    }
+    (async()=>{try{const r=await window.storage?.get("overrides");if(r?.value)setOverrides(JSON.parse(r.value));}catch(_){}})();
+  },[]);
+  useEffect(()=>{if(dataLoaded)window.storage?.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
+  useEffect(()=>{if(dataLoaded)window.storage?.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
+  useEffect(()=>{setFlightSelected(null);},[flightSourceKey]);
+  useEffect(()=>{
+    if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey))setFlightSourceKey("owned");
   },[bags,flightSourceKey]);
 
   const ownedDiscs=useMemo(()=>owned.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean),[owned,allDiscs]);
+  const resolvedOwned=useMemo(()=>ownedDiscs.map(d=>resolveDisc(d,overrides)),[ownedDiscs,overrides]);
   const brands=useMemo(()=>["Alle",...[...new Set(allDiscs.map(d=>d.brand))].sort()],[allDiscs]);
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
@@ -537,35 +519,35 @@ export default function App(){
   },[allDiscs,query,typeFilter,brandFilter]);
 
   const flightDiscs=useMemo(()=>{
-    if(flightSourceKey==="owned")return ownedDiscs;
+    if(flightSourceKey==="owned")return resolvedOwned;
     const bag=bags.find(b=>"bag:"+b.id===flightSourceKey);
     if(!bag)return[];
-    return bag.discIds.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean);
-  },[flightSourceKey,ownedDiscs,bags,allDiscs]);
+    return bag.discIds.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean).map(d=>resolveDisc(d,overrides));
+  },[flightSourceKey,resolvedOwned,bags,allDiscs,overrides]);
   const flightSelectedDisc=flightDiscs.find(d=>d.id===flightSelected)||null;
 
   const addToOwned=id=>setOwned(o=>o.includes(id)?o:[...o,id]);
   const removeFromOwned=id=>setOwned(o=>o.filter(x=>x!==id));
 
+  function saveOverride(discId,vals){setOverrides(o=>({...o,[discId]:vals}));setEditingDiscId(null);}
+  function clearOverride(discId){setOverrides(o=>{const n={...o};delete n[discId];return n;});setEditingDiscId(null);}
+
   function createEmptyBag(){
-    const name=window.prompt("Navn på ny bag:","Ny bag");
-    setShowNewChoice(false);
+    const name=window.prompt("Navn på ny bag:","Ny bag");setShowNewChoice(false);
     if(name===null)return;
     const nb={id:genId(),name:name.trim()||"Ny bag",discIds:[]};
-    setBags(b=>[...b,nb]);
-    setOpenBagId(nb.id);
+    setBags(b=>[...b,nb]);setOpenBagId(nb.id);
   }
   function renameBag(id){
-    const bag=bags.find(b=>b.id===id); if(!bag)return;
+    const bag=bags.find(b=>b.id===id);if(!bag)return;
     const name=window.prompt("Nyt navn:",bag.name);
     if(name===null||!name.trim())return;
     setBags(bs=>bs.map(b=>b.id===id?{...b,name:name.trim()}:b));
   }
   function deleteBag(id){
-    const bag=bags.find(b=>b.id===id); if(!bag)return;
+    const bag=bags.find(b=>b.id===id);if(!bag)return;
     if(!window.confirm(`Slet bag "${bag.name}"? Kan ikke fortrydes.`))return;
-    setBags(bs=>bs.filter(b=>b.id!==id));
-    if(openBagId===id)setOpenBagId(null);
+    setBags(bs=>bs.filter(b=>b.id!==id));if(openBagId===id)setOpenBagId(null);
   }
   function addDiscToBag(bagId,discId){
     setBags(bs=>bs.map(b=>b.id===bagId&&!b.discIds.includes(discId)?{...b,discIds:[...b.discIds,discId]}:b));
@@ -575,9 +557,7 @@ export default function App(){
   }
   function saveGeneratedBag(name,discs){
     const nb={id:genId(),name:name||"Tilfældig bag",discIds:discs.map(d=>d.id)};
-    setBags(b=>[...b,nb]);
-    setOpenBagId(nb.id);
-    setShowGenerator(false);
+    setBags(b=>[...b,nb]);setOpenBagId(nb.id);setShowGenerator(false);
   }
 
   if(discsLoading)return(
@@ -602,9 +582,7 @@ export default function App(){
 
         <header style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
           <Disc3 size={26} color={C.brand}/>
-          <h1 style={{margin:0,fontFamily:"Pacifico,cursive",fontWeight:400,fontSize:30,color:C.text,lineHeight:1}}>
-            Min Disc
-          </h1>
+          <h1 style={{margin:0,fontFamily:"Pacifico,cursive",fontWeight:400,fontSize:30,color:C.text,lineHeight:1}}>Min Disc</h1>
           <span style={{marginLeft:"auto",fontSize:13,color:C.muted,
             background:C.surface,border:`1px solid ${C.line}`,padding:"5px 11px",borderRadius:999}}>
             {owned.length} ejet
@@ -616,7 +594,7 @@ export default function App(){
             background:`${C.brand}15`,border:`1px solid ${C.brand}40`,borderRadius:10,fontSize:13}}>
             <AlertCircle size={16} color={C.brand} style={{flexShrink:0,marginTop:1}}/>
             <span style={{color:C.muted}}>
-              Mini-database aktiv (22 discs). Kør <code style={{color:C.brand}}>node fetch-discs.mjs</code> for fuld database.
+              Mini-database aktiv. Kør <code style={{color:C.brand}}>node fetch-discs.mjs</code> for fuld database.
             </span>
           </div>
         )}
@@ -632,7 +610,6 @@ export default function App(){
           ))}
         </nav>
 
-        {/* ── DATABASE ── */}
         {tab==="db"&&(
           <div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 12px",
@@ -642,11 +619,7 @@ export default function App(){
                 placeholder="Søg disc eller mærke…"
                 style={{flex:1,background:"transparent",border:"none",outline:"none",
                   color:C.text,padding:"12px 0",fontSize:15}}/>
-              {query&&(
-                <button onClick={()=>{setQuery("");setVisible(40);}} aria-label="Ryd" style={iconBtn(C.muted)}>
-                  <X size={15}/>
-                </button>
-              )}
+              {query&&<button onClick={()=>{setQuery("");setVisible(40);}} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
             </div>
             <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
               {["Alle",...TYPES].map(t=>(
@@ -680,13 +653,12 @@ export default function App(){
               <button onClick={()=>setVisible(v=>v+40)} style={{
                 width:"100%",marginTop:14,padding:"12px 0",borderRadius:11,cursor:"pointer",
                 background:"transparent",border:`1px solid ${C.line}`,color:C.muted,fontSize:14}}>
-                Vis {Math.min(40,filtered.length-visibleCount)} mere ({filtered.length-visibleCount} tilbage)
+                Vis {Math.min(40,filtered.length-visibleCount)} mere
               </button>
             )}
           </div>
         )}
 
-        {/* ── MINE DISCS (ejet samling) ── */}
         {tab==="owned"&&(
           <div style={{display:"flex",flexDirection:"column",gap:18}}>
             {ownedDiscs.length===0?(
@@ -696,10 +668,18 @@ export default function App(){
                 <section key={t}>
                   <h2 style={secHdr(t)}>{t}</h2>
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    {ownedDiscs.filter(d=>d.type===t).map(d=>(
-                      <DiscCard key={d.id} disc={d}
-                        actions={[{icon:Trash2,label:"Fjern fra mine discs",onClick:()=>removeFromOwned(d.id),color:C.distance}]}/>
-                    ))}
+                    {ownedDiscs.filter(d=>d.type===t).map(d=>{
+                      const rd=resolveDisc(d,overrides);
+                      return(
+                        <DiscCard key={d.id} disc={rd}
+                          isEditing={editingDiscId===d.id}
+                          onToggleEdit={()=>setEditingDiscId(editingDiscId===d.id?null:d.id)}
+                          override={overrides[d.id]||null}
+                          onSave={vals=>saveOverride(d.id,vals)}
+                          onClear={()=>clearOverride(d.id)}
+                          actions={[{icon:Trash2,label:"Fjern fra mine discs",onClick:()=>removeFromOwned(d.id),color:C.distance}]}/>
+                      );
+                    })}
                   </div>
                 </section>
               ))
@@ -707,19 +687,16 @@ export default function App(){
           </div>
         )}
 
-        {/* ── BAGS ── */}
         {tab==="bags"&&(
           openBagId?(
             <BagDetail
               bag={bags.find(b=>b.id===openBagId)}
-              ownedDiscs={ownedDiscs}
-              allDiscs={allDiscs}
+              ownedDiscs={ownedDiscs} allDiscs={allDiscs}
               onBack={()=>setOpenBagId(null)}
               onRename={()=>renameBag(openBagId)}
               onDelete={()=>deleteBag(openBagId)}
               onAddDisc={discId=>addDiscToBag(openBagId,discId)}
-              onRemoveDisc={discId=>removeDiscFromBag(openBagId,discId)}
-            />
+              onRemoveDisc={discId=>removeDiscFromBag(openBagId,discId)}/>
           ):(
             <div>
               {!showGenerator&&(
@@ -757,7 +734,6 @@ export default function App(){
           )
         )}
 
-        {/* ── FLIGHT MATRIX ── */}
         {tab==="flight"&&(
           <div>
             <select value={flightSourceKey} onChange={e=>setFlightSourceKey(e.target.value)}
@@ -766,7 +742,6 @@ export default function App(){
               <option value="owned">Mine discs (alle ejede)</option>
               {bags.map(b=><option key={b.id} value={"bag:"+b.id}>{b.name}</option>)}
             </select>
-
             <div style={{padding:14,background:C.bg,border:`1px solid ${C.line}`,borderRadius:16,marginBottom:12}}>
               {flightDiscs.length===0?(
                 <Empty text="Ingen discs at vise her endnu."/>
@@ -774,22 +749,17 @@ export default function App(){
                 <FlightMatrix discs={flightDiscs} selectedId={flightSelected} onSelect={setFlightSelected}/>
               )}
             </div>
-
             <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:6,fontSize:12,color:C.muted}}>
               {TYPES.map(t=>(
                 <span key={t} style={{display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{width:9,height:9,borderRadius:"50%",background:TYPE_COLOR[t]}}/>
-                  {t}
+                  <span style={{width:9,height:9,borderRadius:"50%",background:TYPE_COLOR[t]}}/>{t}
                 </span>
               ))}
             </div>
             <div style={{fontSize:12,color:C.muted,marginBottom:16}}>
-              Cirkelstørrelse = fade. Tal er manufacturer-rating for højrehånds-backhand.
+              Tal er manufacturer-rating. Tilpassede tal vises med ✎ i Mine discs.
             </div>
-
-            {flightSelectedDisc&&(
-              <DiscCard disc={flightSelectedDisc}/>
-            )}
+            {flightSelectedDisc&&<DiscCard disc={flightSelectedDisc}/>}
           </div>
         )}
 
