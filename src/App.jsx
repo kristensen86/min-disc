@@ -90,56 +90,73 @@ function FlightChart({discs,hand,height=320,showLabels=true}){
   );
 }
 
-// ─── Flight Matrix: Speed (lodret) × Turn (vandret), Fade = cirkelstørrelse ─
+// ─── Flight Matrix: Speed (lodret) × Stability (Turn+Fade) vandret ─────────
 function FlightMatrix({discs,selectedId,onSelect}){
-  const W=320,H=400,padL=42,padR=16,padT=16,padB=46;
-  const speedMin=1, speedMax=Math.max(14,...discs.map(d=>d.speed),1);
-  const turnMin=-5, turnMax=Math.max(1,...discs.map(d=>d.turn),1);
-  const mapY=s=>padT+(speedMax-s)/(speedMax-speedMin)*(H-padT-padB);
-  const mapX=t=>padL+(turnMax-t)/(turnMax-turnMin)*(W-padL-padR);
-  const r=fade=>4+Math.min(5,Math.max(0,fade))*1.1;
-  const speedMid=Math.round((speedMin+speedMax)/2);
+  const W=300,H=460,padL=28,padR=8,padT=34,padB=44;
+  const stabMin=-5,stabMax=5,speedMin=1,speedMax=14;
+  const plotW=W-padL-padR,plotH=H-padT-padB;
+  const getStab=d=>+(d.fade+d.turn).toFixed(1);
+  const mapX=s=>padL+(stabMax-s)/(stabMax-stabMin)*plotW;
+  const mapY=s=>padT+(speedMax-s)/(speedMax-speedMin)*plotH;
+  const stabTicks=[5,4,3,2,1,0,-1,-2,-3,-4,-5];
+  const speedTicks=[1,2,3,4,5,6,7,8,9,10,11,12,13,14];
 
   return(
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block"}}>
-      <rect x="0" y="0" width={W} height={H} rx="14" fill={C.surface} stroke={C.line}/>
-      {[0.25,0.5,0.75].map(f=>(
-        <line key={"h"+f} x1={padL} x2={W-padR}
-          y1={padT+(H-padT-padB)*f} y2={padT+(H-padT-padB)*f}
-          stroke={C.line} strokeWidth="1" opacity="0.3"/>
-      ))}
-      {[0.25,0.5,0.75].map(f=>(
-        <line key={"v"+f} y1={padT} y2={H-padB}
-          x1={padL+(W-padL-padR)*f} x2={padL+(W-padL-padR)*f}
-          stroke={C.line} strokeWidth="1" opacity="0.3"/>
-      ))}
-      <line x1={mapX(0)} x2={mapX(0)} y1={padT} y2={H-padB} stroke={C.muted} strokeWidth="1" strokeDasharray="2 4" opacity="0.5"/>
+      <rect x="0" y="0" width={W} height={H} rx="12" fill={C.surface} stroke={C.line}/>
 
-      <text x={padL-8} y={padT+4} fill={C.muted} fontSize="9" textAnchor="end">{speedMax}</text>
-      <text x={padL-8} y={mapY(speedMid)+3} fill={C.muted} fontSize="9" textAnchor="end">{speedMid}</text>
-      <text x={padL-8} y={H-padB} fill={C.muted} fontSize="9" textAnchor="end">{speedMin}</text>
-      <text x={14} y={(padT+H-padB)/2} fill={C.muted} fontSize="9" textAnchor="middle"
-        transform={`rotate(-90 14 ${(padT+H-padB)/2})`}>Speed</text>
+      {stabTicks.map(s=>(
+        <line key={"v"+s} x1={mapX(s)} x2={mapX(s)} y1={padT} y2={H-padB}
+          stroke={s===0?C.brand:C.line}
+          strokeWidth={s===0?"1":"0.5"}
+          strokeDasharray={s===0?"4 3":undefined}
+          opacity={s===0?0.45:0.18}/>
+      ))}
 
-      <text x={padL} y={H-padB+18} fill={C.muted} fontSize="9" textAnchor="start">Overstabil ←</text>
-      <text x={W-padR} y={H-padB+18} fill={C.muted} fontSize="9" textAnchor="end">→ Understabil</text>
+      {speedTicks.map(s=>(
+        <line key={"h"+s} x1={padL} x2={W-padR} y1={mapY(s)} y2={mapY(s)}
+          stroke={C.line} strokeWidth="0.5" opacity="0.18"/>
+      ))}
+
+      {stabTicks.map(s=>(
+        <text key={"x"+s} x={mapX(s)} y={H-padB+13}
+          fill={s===0?C.muted:"#3d5249"} fontSize="8" textAnchor="middle">{s}</text>
+      ))}
+
+      {speedTicks.filter(s=>s%2===0||s===1).map(s=>(
+        <text key={"y"+s} x={padL-4} y={mapY(s)+3}
+          fill={C.muted} fontSize="8" textAnchor="end">{s}</text>
+      ))}
+
+      <text x={W/2} y={13} fill={C.muted} fontSize="9" textAnchor="middle"
+        style={{letterSpacing:"0.05em"}}>Stability (Turn + Fade)</text>
+      <text x={padL} y={padT-7} fill={C.muted} fontSize="7">← Overstabil</text>
+      <text x={W-padR} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">Understabil →</text>
+      <text x={padL-4} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">S</text>
 
       {discs.map(d=>{
-        const x=mapX(Math.max(turnMin,Math.min(turnMax,d.turn)));
+        const sx=getStab(d);
+        const x=mapX(Math.max(stabMin,Math.min(stabMax,sx)));
         const y=mapY(Math.max(speedMin,Math.min(speedMax,d.speed)));
         const isSel=d.id===selectedId;
+        const color=TYPE_COLOR[d.type];
         return(
-          <circle key={d.id} cx={x} cy={y} r={r(d.fade)}
-            fill={TYPE_COLOR[d.type]} fillOpacity={isSel?1:0.78}
-            stroke={isSel?C.text:C.bg} strokeWidth={isSel?2:1}
-            style={{cursor:"pointer"}}
-            onClick={()=>onSelect(d.id===selectedId?null:d.id)}/>
+          <g key={d.id} style={{cursor:"pointer"}}
+            onClick={()=>onSelect(d.id===selectedId?null:d.id)}>
+            {isSel&&<circle cx={x} cy={y} r="11" fill="none"
+              stroke={C.text} strokeWidth="1.5" opacity="0.5"/>}
+            <circle cx={x} cy={y} r={isSel?8:6}
+              fill={color} fillOpacity={isSel?1:0.88}
+              stroke={C.bg} strokeWidth="1.2"/>
+            <text x={x} y={y+(isSel?22:19)}
+              fill={isSel?C.text:C.muted}
+              fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
+          </g>
         );
       })}
     </svg>
   );
 }
-
 function FlightBadge({disc}){
   return(
     <div style={{display:"flex",gap:4}}>
