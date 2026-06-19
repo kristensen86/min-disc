@@ -113,19 +113,25 @@ function computePath(disc,hand,geom){
     const t=i/64;
     const turnPhase=Math.sin(Math.PI*Math.min(t/0.7,1));
     const fadeRamp=Math.pow(Math.max(0,(t-0.45)/0.55),1.8);
-    let x=-turn*0.05*turnPhase-fade*0.07*fadeRamp;
+    let x=-turn*0.025*turnPhase-fade*0.035*fadeRamp;
     if(hand==="L")x=-x;
-    return[cx+Math.max(-halfW,Math.min(halfW,x*xScale)),padTop+usableH-t*reach*usableH];
+    return[cx+Math.max(-halfW/2,Math.min(halfW/2,x*xScale)),padTop+usableH-t*reach*usableH];
   });
 }
 const pathStr=pts=>pts.map(([x,y],i)=>`${i===0?"M":"L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
 
 function FlightChart({discs,hand,height=320,showLabels=true}){
   const W=280,H=height,geom={W,H,padX:28,padTop:18,padBottom:26},cx=W/2;
+  const gridY=[0.25,0.5,0.75].map(f=>geom.padTop+(H-geom.padTop-geom.padBottom)*f);
   return(
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block"}}>
       <rect x="0" y="0" width={W} height={H} rx="14" fill={C.surface} stroke={C.line}/>
-      <line x1={cx} y1={geom.padTop} x2={cx} y2={H-geom.padBottom} stroke={C.line} strokeWidth="1" strokeDasharray="3 5"/>
+      {gridY.map((y,i)=>(
+        <line key={i} x1={geom.padX} x2={W-geom.padX} y1={y} y2={y}
+          stroke={C.line} strokeWidth="0.5" opacity="0.4"/>
+      ))}
+      <line x1={cx} y1={geom.padTop} x2={cx} y2={H-geom.padBottom}
+        stroke={C.line} strokeWidth="1" strokeDasharray="3 5" opacity="0.7"/>
       {discs.map((d,i)=>{
         const color=TRACE[i%TRACE.length],pts=computePath(d,hand,geom),end=pts[pts.length-1];
         return(
@@ -136,7 +142,13 @@ function FlightChart({discs,hand,height=320,showLabels=true}){
         );
       })}
       <circle cx={cx} cy={H-geom.padBottom} r="3.5" fill={C.muted}/>
-      {showLabels&&<text x={cx} y={H-9} fill={C.muted} fontSize="9" textAnchor="middle" style={{letterSpacing:"0.08em"}}>UDKAST</text>}
+      {showLabels&&(
+        <>
+          <text x={geom.padX+2} y={H-geom.padBottom+10} fill={C.muted} fontSize="8" textAnchor="start">← Fade</text>
+          <text x={W-geom.padX-2} y={H-geom.padBottom+10} fill={C.muted} fontSize="8" textAnchor="end">Turn →</text>
+          <text x={cx} y={H-3} fill={C.muted} fontSize="8" textAnchor="middle" style={{letterSpacing:"0.08em"}}>UDKAST</text>
+        </>
+      )}
     </svg>
   );
 }
@@ -372,12 +384,9 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
             width:44,height:44,flexShrink:0,borderRadius:10,padding:0,cursor:"pointer",
             background:`${disc.pColor||TYPE_COLOR[disc.type]}22`,
             border:`1px solid ${showBane?(disc.pColor||TYPE_COLOR[disc.type]):(disc.pColor||TYPE_COLOR[disc.type])+"55"}`,
-            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+            display:"flex",alignItems:"center",justifyContent:"center"}}>
             <span style={{fontSize:18,fontWeight:800,color:disc.pColor||TYPE_COLOR[disc.type],lineHeight:1}}>
               {disc.type[0]}
-            </span>
-            <span style={{fontSize:7,color:disc.pColor||TYPE_COLOR[disc.type],opacity:0.7,letterSpacing:"0.03em"}}>
-              {showBane?"luk":"bane"}
             </span>
           </button>
         )}
