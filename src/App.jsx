@@ -10,6 +10,33 @@ const TYPE_COLOR={Putter:C.putter,Midrange:C.midrange,Fairway:C.fairway,Distance
 const TRACE=["#f2c14e","#5bb4ff","#5fd486","#ff6b6b","#c77dff","#ff9f43","#4dd4c0","#ff6fb5"];
 const TYPES=["Putter","Midrange","Fairway","Distance"];
 const DISC_COLORS=["#ff4757","#ff6348","#ffa502","#eccc68","#2ed573","#1e90ff","#a29bfe","#fd79a8","#ffffff","#b2bec3","#636e72","#2d3436"];
+const WEAR=[["ny","Ny","#5fd486"],["brugt","Brugt","#f2c14e"],["beat-in","Beat in","#ff9f43"]];
+
+function resizeImage(file,maxPx=300){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(maxPx/img.width,maxPx/img.height,1);
+        const c=document.createElement("canvas");
+        c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        resolve(c.toDataURL("image/jpeg",0.72));
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function encodeBag(bag,allDiscs){
+  const discs=bag.discIds.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean)
+    .map(({id,name,brand,type,speed,glide,turn,fade})=>({id,name,brand,type,speed,glide,turn,fade}));
+  return btoa(unescape(encodeURIComponent(JSON.stringify({name:bag.name,discs}))));
+}
+function decodeBag(enc){
+  try{return JSON.parse(decodeURIComponent(escape(atob(enc))));}catch{return null;}
+}
 
 function typeFromSpeed(s){if(s<=3)return"Putter";if(s<=5)return"Midrange";if(s<=8)return"Fairway";return"Distance";}
 const RAW=[
@@ -158,6 +185,16 @@ function StabilityPill({stability}){
   );
 }
 
+function WearBadge({wear}){
+  if(!wear)return null;
+  const map={ny:["#5fd486","Ny"],brugt:["#f2c14e","Brugt"],"beat-in":["#ff9f43","Beat in"]};
+  const[color,label]=map[wear]??[C.muted,wear];
+  return(
+    <span style={{fontSize:11,padding:"2px 7px",borderRadius:999,
+      border:`1px solid ${color}40`,color,background:`${color}15`}}>{label}</span>
+  );
+}
+
 function miniBtn(color){
   return{padding:"7px 12px",borderRadius:9,cursor:"pointer",
     background:"transparent",border:`1px solid ${color}`,color,fontSize:12,fontWeight:600};
@@ -167,9 +204,16 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
   const cur={...disc,...(override||{})};
   const[vals,setVals]=useState({
     speed:cur.speed,glide:cur.glide,turn:cur.turn,fade:cur.fade,
-    pColor:cur.pColor||null,pWeight:cur.pWeight||"",pPlastic:cur.pPlastic||"",pNote:cur.pNote||"",
+    pColor:cur.pColor||null,pWeight:cur.pWeight||"",pPlastic:cur.pPlastic||"",
+    pNote:cur.pNote||"",pWear:cur.pWear||null,pPhoto:cur.pPhoto||null,
   });
-  const set=k=>v=>setVals(prev=>({...prev,[k]:v}));
+  const set=k=>v=>setVals(p=>({...p,[k]:v}));
+
+  async function handlePhoto(e){
+    const file=e.target.files?.[0];
+    if(file){const data=await resizeImage(file);set("pPhoto")(data);}
+  }
+
   return(
     <div style={{padding:"12px 14px",background:C.raised,
       border:`1px solid ${C.brand}40`,borderRadius:"0 0 14px 14px",marginTop:-2}}>
@@ -195,6 +239,37 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
           textTransform:"uppercase",marginBottom:10}}>Min disc</div>
 
         <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Foto</div>
+          {vals.pPhoto?(
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <img src={vals.pPhoto} alt="disc" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:`1px solid ${C.line}`}}/>
+              <button onClick={()=>set("pPhoto")(null)} style={miniBtn(C.distance)}>Fjern</button>
+            </div>
+          ):(
+            <label style={{cursor:"pointer"}}>
+              <div style={{...miniBtn(C.muted),display:"inline-flex",alignItems:"center",gap:6}}>
+                📷 Upload foto
+              </div>
+              <input type="file" accept="image/*" capture="environment"
+                style={{display:"none"}} onChange={handlePhoto}/>
+            </label>
+          )}
+        </div>
+
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Slid-status</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {WEAR.map(([val,label,color])=>(
+              <button key={val} onClick={()=>set("pWear")(vals.pWear===val?null:val)} style={{
+                padding:"6px 12px",borderRadius:999,cursor:"pointer",fontSize:12,fontWeight:500,
+                border:`1px solid ${vals.pWear===val?color:C.line}`,
+                background:vals.pWear===val?`${color}20`:"transparent",
+                color:vals.pWear===val?color:C.muted}}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{marginBottom:10}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Farve</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
             {DISC_COLORS.map(c=>(
@@ -214,16 +289,14 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
           <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:11,color:C.muted,flex:"0 0 80px"}}>
             Vægt (g)
             <input type="number" inputMode="numeric" value={vals.pWeight} min={100} max={200}
-              onChange={e=>set("pWeight")(e.target.value)}
-              placeholder="175"
+              onChange={e=>set("pWeight")(e.target.value)} placeholder="175"
               style={{padding:"7px 8px",borderRadius:8,background:C.surface,
                 border:`1px solid ${C.line}`,color:C.text,fontSize:13,width:"100%"}}/>
           </label>
           <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:11,color:C.muted,flex:1}}>
             Plast
             <input type="text" value={vals.pPlastic}
-              onChange={e=>set("pPlastic")(e.target.value)}
-              placeholder="f.eks. Star, Z Line…"
+              onChange={e=>set("pPlastic")(e.target.value)} placeholder="f.eks. Star, Z Line…"
               style={{padding:"7px 8px",borderRadius:8,background:C.surface,
                 border:`1px solid ${C.line}`,color:C.text,fontSize:13,width:"100%"}}/>
           </label>
@@ -232,8 +305,7 @@ function FlightEditor({disc,override,onSave,onClear,onClose}){
         <label style={{display:"flex",flexDirection:"column",gap:3,fontSize:11,color:C.muted}}>
           Note
           <input type="text" value={vals.pNote}
-            onChange={e=>set("pNote")(e.target.value)}
-            placeholder="f.eks. Beat in, skovbag, gave fra…"
+            onChange={e=>set("pNote")(e.target.value)} placeholder="f.eks. Beat in, skovbag, gave fra…"
             style={{padding:"7px 8px",borderRadius:8,background:C.surface,
               border:`1px solid ${C.line}`,color:C.text,fontSize:13,width:"100%"}}/>
         </label>
@@ -256,7 +328,12 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
         background:C.surface,border:`1px solid ${isEditing?C.brand:C.line}`,
         borderRadius:isEditing?"14px 14px 0 0":14}}>
         <div style={{width:56,flexShrink:0}}>
-          <FlightChart discs={[disc]} hand="R" height={70} showLabels={false}/>
+          {disc.pPhoto?(
+            <img src={disc.pPhoto} alt={disc.name}
+              style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:`1px solid ${C.line}`}}/>
+          ):(
+            <FlightChart discs={[disc]} hand="R" height={70} showLabels={false}/>
+          )}
         </div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
@@ -265,6 +342,7 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
               border:disc.pColor?`1px solid ${C.line}`:"none"}}/>
             <span style={{fontWeight:600,color:C.text}}>{disc.name}</span>
             {hasOverride&&<span style={{fontSize:10,color:C.brand}}>✎</span>}
+            <WearBadge wear={disc.pWear}/>
             <StabilityPill stability={disc.stability}/>
           </div>
           <div style={{color:C.muted,fontSize:13,marginBottom:disc.pWeight||disc.pPlastic?4:8}}>
@@ -516,6 +594,42 @@ function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,o
   );
 }
 
+function SharedBagView({bag,onClose,onAddAll}){
+  return(
+    <div style={{position:"fixed",inset:0,background:C.bg,zIndex:200,overflowY:"auto"}}>
+      <div style={{maxWidth:560,margin:"0 auto",padding:"20px 16px 60px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+          <Disc3 size={22} color={C.brand}/>
+          <span style={{fontFamily:"Pacifico,cursive",fontSize:24,color:C.text,lineHeight:1}}>Min Disc</span>
+        </div>
+        <div style={{fontSize:12,color:C.muted,padding:"6px 10px",marginBottom:20,
+          background:C.surface,borderRadius:8,border:`1px solid ${C.line}`,display:"inline-block"}}>
+          Delt bag — kun læsning
+        </div>
+        <h1 style={{margin:"0 0 4px",fontSize:22,fontWeight:700,color:C.text}}>{bag.name}</h1>
+        <div style={{fontSize:13,color:C.muted,marginBottom:18}}>{bag.discs.length} discs</div>
+        <div style={{display:"flex",gap:8,marginBottom:22,flexWrap:"wrap"}}>
+          <button onClick={onAddAll} style={btn("primary")}>+ Tilføj alle til mine discs</button>
+          <button onClick={onClose} style={btn()}>Åbn min bag</button>
+        </div>
+        {TYPES.filter(t=>bag.discs.some(d=>d.type===t)).map(t=>(
+          <section key={t} style={{marginBottom:18}}>
+            <h2 style={secHdr(t)}>{t}</h2>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {bag.discs.filter(d=>d.type===t).map(d=>(
+                <DiscCard key={d.id} disc={d}/>
+              ))}
+            </div>
+          </section>
+        ))}
+        <button onClick={onClose} style={{...btn("ghost"),width:"100%",marginTop:10}}>
+          Åbn min bag
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
   const[allDiscs,setAllDiscs]=useState([]);
   const[discsLoading,setDiscsLoading]=useState(true);
@@ -535,6 +649,10 @@ export default function App(){
   const[flightSelected,setFlightSelected]=useState(null);
   const[overrides,setOverrides]=useState({});
   const[editingDiscId,setEditingDiscId]=useState(null);
+  const[sharedBag,setSharedBag]=useState(()=>{
+    try{const p=new URLSearchParams(window.location.search).get("bag");return p?decodeBag(p):null;}
+    catch{return null;}
+  });
 
   useEffect(()=>{
     fetch("/discs.json")
@@ -602,6 +720,14 @@ export default function App(){
   function saveOverride(discId,vals){setOverrides(o=>({...o,[discId]:vals}));setEditingDiscId(null);}
   function clearOverride(discId){setOverrides(o=>{const n={...o};delete n[discId];return n;});setEditingDiscId(null);}
 
+  function shareBag(bag){
+    const encoded=encodeBag(bag,allDiscs);
+    const url=`${window.location.origin}${window.location.pathname}?bag=${encoded}`;
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(url).then(()=>alert("Link kopieret!")).catch(()=>prompt("Kopiér dette link:",url));
+    }else{prompt("Kopiér dette link:",url);}
+  }
+
   function createEmptyBag(){
     const name=window.prompt("Navn på ny bag:","Ny bag");setShowNewChoice(false);
     if(name===null)return;
@@ -629,6 +755,19 @@ export default function App(){
     const nb={id:genId(),name:name||"Tilfældig bag",discIds:discs.map(d=>d.id)};
     setBags(b=>[...b,nb]);setOpenBagId(nb.id);setShowGenerator(false);
   }
+
+  function addAllFromShared(){
+    if(!sharedBag)return;
+    setOwned(o=>[...new Set([...o,...sharedBag.discs.map(d=>d.id)])]);
+    setSharedBag(null);
+    window.history.replaceState({},"",window.location.pathname);
+  }
+
+  if(sharedBag)return(
+    <SharedBagView bag={sharedBag}
+      onClose={()=>{setSharedBag(null);window.history.replaceState({},"",window.location.pathname);}}
+      onAddAll={addAllFromShared}/>
+  );
 
   if(discsLoading)return(
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",
@@ -790,7 +929,12 @@ export default function App(){
                           padding:14,borderRadius:14,cursor:"pointer",textAlign:"left",
                           background:C.surface,border:`1px solid ${C.line}`,color:C.text}}>
                           <span style={{fontWeight:600}}>{b.name}</span>
-                          <span style={{fontSize:13,color:C.muted}}>{b.discIds.length} discs</span>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{fontSize:13,color:C.muted}}>{b.discIds.length} discs</span>
+                            <button onClick={e=>{e.stopPropagation();shareBag(b);}}
+                              style={{fontSize:12,color:C.brand,background:"transparent",border:"none",
+                                cursor:"pointer",padding:"2px 6px",borderRadius:6}}>Del</button>
+                          </div>
                         </button>
                       ))}
                     </div>
