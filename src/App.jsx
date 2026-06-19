@@ -11,6 +11,7 @@ import { GeneratorPanel } from "./components/GeneratorPanel";
 import { BagDetail } from "./components/BagDetail";
 import { SharedBagView } from "./components/SharedBagView";
 import { LoginScreen } from "./components/LoginScreen";
+import { RoundTracker } from "./components/RoundTracker";
 
 export default function App(){
   const[authUser,setAuthUser]=useState(null);
@@ -35,6 +36,7 @@ export default function App(){
   const[editingDiscUid,setEditingDiscUid]=useState(null);
   const[wishlist,setWishlist]=useState([]);
   const[showOnlyWishlist,setShowOnlyWishlist]=useState(false);
+  const[rounds,setRounds]=useState([]);
   const[sharedBag,setSharedBag]=useState(()=>{
     try{const p=new URLSearchParams(window.location.search).get("bag");return p?decodeBag(p):null;}
     catch{return null;}
@@ -51,7 +53,7 @@ export default function App(){
       setUser(u);setAuthUser(u);
       if(!u){
         setDataLoaded(false);
-        setOwned([]);setBags([]);setOverrides({});setWishlist([]);
+        setOwned([]);setBags([]);setOverrides({});setWishlist([]);setRounds([]);
       }
     });
     return()=>subscription.unsubscribe();
@@ -131,6 +133,13 @@ export default function App(){
         try{if(res?.value)wishlistIds=JSON.parse(res.value);}catch(_){}
       }catch(_){}
       setWishlist(wishlistIds);
+      let roundsList=[];
+      try{
+        let res=await store.get("rounds");
+        if(!res?.value&&authUser){const lv=localStorage.getItem("md_rounds");if(lv)res={value:lv};}
+        try{if(res?.value)roundsList=JSON.parse(res.value);}catch(_){}
+      }catch(_){}
+      setRounds(roundsList);
       setDataLoaded(true);
     })();
   },[authUser,authLoading]);
@@ -139,6 +148,7 @@ export default function App(){
   useEffect(()=>{if(dataLoaded)store.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("wishlist",JSON.stringify(wishlist)).catch(()=>{});},[wishlist,dataLoaded]);
+  useEffect(()=>{if(dataLoaded)store.set("rounds",JSON.stringify(rounds)).catch(()=>{});},[rounds,dataLoaded]);
   useEffect(()=>{setFlightSelected(null);},[flightSourceKey]);
   useEffect(()=>{
     if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey))setFlightSourceKey("owned");
@@ -284,7 +294,7 @@ export default function App(){
         )}
 
         <nav style={{display:"flex",gap:6,marginBottom:18}}>
-          {[["db","Database"],["owned","Mine discs"],["bags","Bags"],["flight","Flight"]].map(([key,label])=>(
+          {[["db","Database"],["owned","Mine discs"],["bags","Bags"],["flight","Flight"],["runde","Runde"]].map(([key,label])=>(
             <button key={key} onClick={()=>setTab(key)} style={{
               flex:1,padding:"10px 0",borderRadius:11,cursor:"pointer",fontSize:13,fontWeight:600,
               border:`1px solid ${tab===key?C.brand:C.line}`,
@@ -466,6 +476,10 @@ export default function App(){
             </div>
             {flightSelectedDisc&&<DiscCard disc={flightSelectedDisc}/>}
           </div>
+        )}
+
+        {tab==="runde"&&(
+          <RoundTracker rounds={rounds} setRounds={setRounds}/>
         )}
 
       </div>
