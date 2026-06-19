@@ -201,10 +201,6 @@ function DiscCard({disc,actions=[]}){
         <div style={{color:C.muted,fontSize:13,marginBottom:8}}>{disc.brand} · {disc.type}</div>
         <FlightBadge disc={disc}/>
       </div>
-      {disc.link&&(
-        <a href={disc.link} target="_blank" rel="noopener noreferrer"
-          style={{fontSize:11,color:C.muted,flexShrink:0}}>Køb</a>
-      )}
       {actions.map((a,i)=>(
         <button key={i} onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color||C.muted)}>
           <a.icon size={16}/>
