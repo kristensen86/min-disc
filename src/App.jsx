@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, Disc3, AlertCircle, Loader } from "lucide-react";
+import { Search, Plus, X, Trash2, Disc3, AlertCircle, Loader, Heart } from "lucide-react";
 
 const C = {
   bg:"#0f1714",surface:"#18241f",raised:"#1f3029",line:"#2c4036",
@@ -386,7 +386,7 @@ function DiscCard({disc,actions=[],isEditing=false,onToggleEdit=null,override=nu
         )}
         {actions.map((a,i)=>(
           <button key={i} onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color||C.muted)}>
-            <a.icon size={16}/>
+            <a.icon size={16} {...(a.iconProps||{})}/>
           </button>
         ))}
       </div>
@@ -682,6 +682,8 @@ export default function App(){
   const[flightSelected,setFlightSelected]=useState(null);
   const[overrides,setOverrides]=useState({});
   const[editingDiscId,setEditingDiscId]=useState(null);
+  const[wishlist,setWishlist]=useState([]);
+  const[showOnlyWishlist,setShowOnlyWishlist]=useState(false);
   const[sharedBag,setSharedBag]=useState(()=>{
     try{const p=new URLSearchParams(window.location.search).get("bag");return p?decodeBag(p):null;}
     catch{return null;}
@@ -711,7 +713,11 @@ export default function App(){
         bagsList=ownedIds.length>0?[{id:genId(),name:"Min bag",discIds:[...ownedIds]}]:[];
         store.set("bags",JSON.stringify(bagsList)).catch(()=>{});
       }
-      setBags(bagsList);setDataLoaded(true);
+      setBags(bagsList);
+      let wishlistIds=[];
+      try{const res=await store.get("wishlist");if(res?.value)wishlistIds=JSON.parse(res.value);}catch(_){}
+      setWishlist(wishlistIds);
+      setDataLoaded(true);
     })();
   },[]);
 
@@ -721,6 +727,7 @@ export default function App(){
   },[]);
   useEffect(()=>{if(dataLoaded)store.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
+  useEffect(()=>{if(dataLoaded)store.set("wishlist",JSON.stringify(wishlist)).catch(()=>{});},[wishlist,dataLoaded]);
   useEffect(()=>{setFlightSelected(null);},[flightSourceKey]);
   useEffect(()=>{
     if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey))setFlightSourceKey("owned");
@@ -732,12 +739,13 @@ export default function App(){
   const filtered=useMemo(()=>{
     const q=query.trim().toLowerCase();
     return allDiscs.filter(d=>{
+      if(showOnlyWishlist&&!wishlist.includes(d.id))return false;
       if(typeFilter!=="Alle"&&d.type!==typeFilter)return false;
       if(brandFilter!=="Alle"&&d.brand!==brandFilter)return false;
       if(!q)return true;
       return(d.name+" "+d.brand).toLowerCase().includes(q);
     });
-  },[allDiscs,query,typeFilter,brandFilter]);
+  },[allDiscs,query,typeFilter,brandFilter,wishlist,showOnlyWishlist]);
 
   const flightDiscs=useMemo(()=>{
     if(flightSourceKey==="owned")return resolvedOwned;
@@ -749,6 +757,8 @@ export default function App(){
 
   const addToOwned=id=>setOwned(o=>o.includes(id)?o:[...o,id]);
   const removeFromOwned=id=>setOwned(o=>o.filter(x=>x!==id));
+  const addToWishlist=id=>setWishlist(w=>w.includes(id)?w:[...w,id]);
+  const removeFromWishlist=id=>setWishlist(w=>w.filter(x=>x!==id));
 
   function saveOverride(discId,vals){setOverrides(o=>({...o,[discId]:vals}));setEditingDiscId(null);}
   function clearOverride(discId){setOverrides(o=>{const n={...o};delete n[discId];return n;});setEditingDiscId(null);}
@@ -871,6 +881,15 @@ export default function App(){
                   {t}
                 </button>
               ))}
+              <button onClick={()=>{setShowOnlyWishlist(v=>!v);setVisible(40);}} style={{
+                padding:"6px 12px",borderRadius:999,cursor:"pointer",fontSize:12,fontWeight:500,
+                display:"flex",alignItems:"center",gap:5,
+                border:`1px solid ${showOnlyWishlist?C.distance:C.line}`,
+                background:showOnlyWishlist?`${C.distance}15`:"transparent",
+                color:showOnlyWishlist?C.distance:C.muted}}>
+                <Heart size={12} fill={showOnlyWishlist?"currentColor":"none"}/>
+                Ønskeliste{wishlist.length>0?` (${wishlist.length})`:""}
+              </button>
             </div>
             <select value={brandFilter} onChange={e=>{setBrandFilter(e.target.value);setVisible(40);}}
               style={{width:"100%",padding:"10px 12px",marginBottom:10,background:C.surface,
@@ -885,7 +904,12 @@ export default function App(){
                 <DiscCard key={d.id} disc={d} actions={[
                   owned.includes(d.id)
                     ?{icon:Trash2,label:"Fjern fra mine discs",onClick:()=>removeFromOwned(d.id),color:C.distance}
-                    :{icon:Plus,label:"Tilføj til mine discs",onClick:()=>addToOwned(d.id),color:C.brand}
+                    :{icon:Plus,label:"Tilføj til mine discs",onClick:()=>addToOwned(d.id),color:C.brand},
+                  {icon:Heart,
+                   iconProps:wishlist.includes(d.id)?{fill:"currentColor"}:{},
+                   label:wishlist.includes(d.id)?"Fjern fra ønskeliste":"Tilføj til ønskeliste",
+                   onClick:()=>wishlist.includes(d.id)?removeFromWishlist(d.id):addToWishlist(d.id),
+                   color:wishlist.includes(d.id)?C.distance:C.muted}
                 ]}/>
               ))}
               {filtered.length===0&&<Empty text="Ingen discs matcher din søgning."/>}
