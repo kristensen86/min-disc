@@ -8932,6 +8932,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=falk&post_type=product"
   },
   {
+    "id": "a28d7118-f0b9-5175-b823-6e7e38abd73f",
+    "name": "Gadd",
+    "brand": "Kastaplast",
+    "category": "Midrange",
+    "type": "Midrange",
+    "speed": 5,
+    "glide": 5,
+    "turn": 0,
+    "fade": 2,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "69e204e7-d34c-5308-bade-ca5e0ecc83bc",
     "name": "Gote",
     "brand": "Kastaplast",
