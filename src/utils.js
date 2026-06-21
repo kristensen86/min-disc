@@ -32,7 +32,8 @@ export function genId(){ return Date.now().toString(36)+Math.random().toString(3
 
 export function emptyGenForm(){
   return{name:"Tilfældig bag",preset:"none",balanced:true,total:8,
-    counts:{Putter:2,Midrange:2,Fairway:2,Distance:2},minSpeed:1,maxSpeed:14,allowDup:false};
+    counts:{Putter:2,Midrange:2,Fairway:2,Distance:2},minSpeed:1,maxSpeed:14,allowDup:false,
+    colors:[],maxWeight:null,brands:[]};
 }
 
 export function splitEvenly(total){

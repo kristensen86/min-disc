@@ -14,8 +14,8 @@ export function FlightMatrix({discs,selectedId,onSelect}){
       <rect x="0" y="0" width={W} height={H} rx="12" fill={C.surface} stroke={C.line}/>
       {stabTicks.map(s=>(
         <line key={"v"+s} x1={mapX(s)} x2={mapX(s)} y1={padT} y2={H-padB}
-          stroke={s===0?C.brand:C.line} strokeWidth={s===0?"1":"0.5"}
-          strokeDasharray={s===0?"4 3":undefined} opacity={s===0?0.45:0.18}/>
+          stroke={s===0?C.brand:C.line} strokeWidth={s===0?"1.2":"0.5"}
+          strokeDasharray={s===0?"4 3":undefined} opacity={s===0?0.6:0.18}/>
       ))}
       {speedTicks.map(s=>(
         <line key={"h"+s} x1={padL} x2={W-padR} y1={mapY(s)} y2={mapY(s)}
@@ -23,12 +23,12 @@ export function FlightMatrix({discs,selectedId,onSelect}){
       ))}
       {stabTicks.map(s=>(
         <text key={"x"+s} x={mapX(s)} y={H-padB+13}
-          fill={s===0?C.muted:"#3d5249"} fontSize="8" textAnchor="middle">{s}</text>
+          fill={s===0?C.muted:"#2a3e2a"} fontSize="8" textAnchor="middle">{s}</text>
       ))}
       {speedTicks.filter(s=>s%2===0||s===1).map(s=>(
         <text key={"y"+s} x={padL-4} y={mapY(s)+3} fill={C.muted} fontSize="8" textAnchor="end">{s}</text>
       ))}
-      <text x={W/2} y={13} fill={C.muted} fontSize="9" textAnchor="middle" style={{letterSpacing:"0.05em"}}>Stability (Turn + Fade)</text>
+      <text x={W/2} y={13} fill={C.muted} fontSize="9" textAnchor="middle" style={{letterSpacing:"0.06em"}}>Stability (Turn + Fade)</text>
       <text x={padL} y={padT-7} fill={C.muted} fontSize="7">← Overstabil</text>
       <text x={W-padR} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">Understabil →</text>
       <text x={padL-4} y={padT-7} fill={C.muted} fontSize="7" textAnchor="end">S</text>
@@ -50,9 +50,10 @@ export function FlightMatrix({discs,selectedId,onSelect}){
           const color=d.pColor||TYPE_COLOR[d.type];
           return(
             <g key={dkey(d)} style={{cursor:"pointer"}} onClick={()=>onSelect(dkey(d)===selectedId?null:dkey(d))}>
-              {isSel&&<circle cx={jx} cy={jy} r="11" fill="none" stroke={C.text} strokeWidth="1.5" opacity="0.5"/>}
+              {isSel&&<circle cx={jx} cy={jy} r="16" fill={color} fillOpacity="0.1"/>}
+              {isSel&&<circle cx={jx} cy={jy} r="11" fill="none" stroke={color} strokeWidth="1" opacity="0.5"/>}
               <circle cx={jx} cy={jy} r={isSel?8:6} fill={color} fillOpacity={isSel?1:0.88} stroke={C.bg} strokeWidth="1.2"/>
-              <text x={jx} y={jy+(isSel?22:19)} fill={isSel?C.text:C.muted} fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
+              <text x={jx} y={jy+(isSel?23:20)} fill={isSel?C.text:C.muted} fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
             </g>
           );
         });

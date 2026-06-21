@@ -11,7 +11,7 @@ import { GeneratorPanel } from "./components/GeneratorPanel";
 import { BagDetail } from "./components/BagDetail";
 import { SharedBagView } from "./components/SharedBagView";
 import { LoginScreen } from "./components/LoginScreen";
-import { RoundTracker } from "./components/RoundTracker";
+import { StatsPanel } from "./components/StatsPanel";
 
 export default function App(){
   const[authUser,setAuthUser]=useState(null);
@@ -36,7 +36,6 @@ export default function App(){
   const[editingDiscUid,setEditingDiscUid]=useState(null);
   const[wishlist,setWishlist]=useState([]);
   const[showOnlyWishlist,setShowOnlyWishlist]=useState(false);
-  const[rounds,setRounds]=useState([]);
   const[sharedBag,setSharedBag]=useState(()=>{
     try{const p=new URLSearchParams(window.location.search).get("bag");return p?decodeBag(p):null;}
     catch{return null;}
@@ -53,7 +52,7 @@ export default function App(){
       setUser(u);setAuthUser(u);
       if(!u){
         setDataLoaded(false);
-        setOwned([]);setBags([]);setOverrides({});setWishlist([]);setRounds([]);
+        setOwned([]);setBags([]);setOverrides({});setWishlist([]);
       }
     });
     return()=>subscription.unsubscribe();
@@ -133,13 +132,6 @@ export default function App(){
         try{if(res?.value)wishlistIds=JSON.parse(res.value);}catch(_){}
       }catch(_){}
       setWishlist(wishlistIds);
-      let roundsList=[];
-      try{
-        let res=await store.get("rounds");
-        if(!res?.value&&authUser){const lv=localStorage.getItem("md_rounds");if(lv)res={value:lv};}
-        try{if(res?.value)roundsList=JSON.parse(res.value);}catch(_){}
-      }catch(_){}
-      setRounds(roundsList);
       setDataLoaded(true);
     })();
   },[authUser,authLoading]);
@@ -148,7 +140,6 @@ export default function App(){
   useEffect(()=>{if(dataLoaded)store.set("overrides",JSON.stringify(overrides)).catch(()=>{});},[overrides,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("bags",JSON.stringify(bags)).catch(()=>{});},[bags,dataLoaded]);
   useEffect(()=>{if(dataLoaded)store.set("wishlist",JSON.stringify(wishlist)).catch(()=>{});},[wishlist,dataLoaded]);
-  useEffect(()=>{if(dataLoaded)store.set("rounds",JSON.stringify(rounds)).catch(()=>{});},[rounds,dataLoaded]);
   useEffect(()=>{setFlightSelected(null);},[flightSourceKey]);
   useEffect(()=>{
     if(flightSourceKey!=="owned"&&!bags.some(b=>"bag:"+b.id===flightSourceKey))setFlightSourceKey("owned");
@@ -236,12 +227,22 @@ export default function App(){
       onAddAll={addAllFromShared}/>
   );
 
+  const spinStyle=`@keyframes spin{to{transform:rotate(360deg)}}`;
+  const fontStyle=`
+    @import url('https://fonts.googleapis.com/css2?family=Pacifico&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap');
+    *{box-sizing:border-box;}
+    button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}
+    select{appearance:none;}
+    input::placeholder{color:${C.muted};}
+  `;
+
   if(authLoading)return(
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",
-      justifyContent:"center",flexDirection:"column",gap:12}}>
+      justifyContent:"center",flexDirection:"column",gap:14,
+      fontFamily:"'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      <style>{fontStyle+spinStyle}</style>
       <Loader size={28} color={C.brand} style={{animation:"spin 1s linear infinite"}}/>
-      <span style={{color:C.muted,fontSize:14}}>Logger ind…</span>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <span style={{color:C.muted,fontSize:14,letterSpacing:"0.02em"}}>Logger ind…</span>
     </div>
   );
 
@@ -249,43 +250,49 @@ export default function App(){
 
   if(discsLoading)return(
     <div style={{background:C.bg,minHeight:"100vh",display:"flex",alignItems:"center",
-      justifyContent:"center",flexDirection:"column",gap:12}}>
+      justifyContent:"center",flexDirection:"column",gap:14,
+      fontFamily:"'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      <style>{fontStyle+spinStyle}</style>
       <Loader size={28} color={C.brand} style={{animation:"spin 1s linear infinite"}}/>
-      <span style={{color:C.muted,fontSize:14}}>Henter disc-database…</span>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <span style={{color:C.muted,fontSize:14,letterSpacing:"0.02em"}}>Henter disc-database…</span>
     </div>
   );
 
+  const TABS=[["db","Database"],["owned","Mine discs"],["bags","Bags"],["flight","Flight"],["stats","Statistik"]];
+
   return(
     <div style={{background:C.bg,color:C.text,minHeight:"100vh",
-      fontFamily:"Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Pacifico&family=Inter:wght@400;500;600;700&display=swap');
-        *{box-sizing:border-box;}
-        button:focus-visible{outline:2px solid ${C.brand};outline-offset:2px;}
-        select{appearance:none;}
-      `}</style>
-      <div style={{maxWidth:560,margin:"0 auto",padding:"20px 16px 60px"}}>
+      fontFamily:"'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      <style>{fontStyle}</style>
 
-        <header style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-          <Disc3 size={26} color={C.brand}/>
-          <h1 style={{margin:0,fontFamily:"Pacifico,cursive",fontWeight:400,fontSize:30,color:C.text,lineHeight:1}}>Min Disc</h1>
-          <span style={{marginLeft:"auto",fontSize:13,color:C.muted,
-            background:C.surface,border:`1px solid ${C.line}`,padding:"5px 11px",borderRadius:999}}>
-            {owned.length} ejet
-          </span>
-          {authUser&&supabase&&(
-            <button onClick={()=>supabase.auth.signOut()} aria-label="Log ud"
-              title={authUser.email}
-              style={{...iconBtn(C.muted),flexShrink:0}}>
-              <LogOut size={15}/>
-            </button>
-          )}
-        </header>
+      <div style={{maxWidth:560,margin:"0 auto",padding:"0 16px 60px"}}>
+
+        {/* Header with gradient background */}
+        <div style={{
+          background:`linear-gradient(180deg, ${C.surface} 0%, transparent 100%)`,
+          margin:"0 -16px",padding:"20px 16px 18px",marginBottom:4,
+        }}>
+          <header style={{display:"flex",alignItems:"center",gap:10}}>
+            <Disc3 size={24} color={C.brand}/>
+            <h1 style={{margin:0,fontFamily:"Pacifico,cursive",fontWeight:400,fontSize:30,
+              color:C.brand,lineHeight:1}}>BagUp</h1>
+            <span style={{marginLeft:"auto",fontSize:12,color:C.muted,letterSpacing:"0.03em",
+              background:C.raised,border:`1px solid ${C.line}`,padding:"5px 12px",borderRadius:999}}>
+              {owned.length} ejet
+            </span>
+            {authUser&&supabase&&(
+              <button onClick={()=>supabase.auth.signOut()} aria-label="Log ud"
+                title={authUser.email}
+                style={{...iconBtn(C.muted),flexShrink:0}}>
+                <LogOut size={15}/>
+              </button>
+            )}
+          </header>
+        </div>
 
         {usingFallback&&(
-          <div style={{display:"flex",gap:8,alignItems:"flex-start",padding:"10px 12px",marginBottom:14,
-            background:`${C.brand}15`,border:`1px solid ${C.brand}40`,borderRadius:10,fontSize:13}}>
+          <div style={{display:"flex",gap:8,alignItems:"flex-start",padding:"11px 14px",marginBottom:16,
+            background:`${C.brand}12`,border:`1px solid ${C.brand}35`,borderRadius:12,fontSize:13}}>
             <AlertCircle size={16} color={C.brand} style={{flexShrink:0,marginTop:1}}/>
             <span style={{color:C.muted}}>
               Mini-database aktiv. Kør <code style={{color:C.brand}}>node fetch-discs.mjs</code> for fuld database.
@@ -293,12 +300,16 @@ export default function App(){
           </div>
         )}
 
-        <nav style={{display:"flex",gap:6,marginBottom:18}}>
-          {[["db","Database"],["owned","Mine discs"],["bags","Bags"],["flight","Flight"],["runde","Runde"]].map(([key,label])=>(
+        <nav style={{display:"flex",gap:5,marginBottom:20}}>
+          {TABS.map(([key,label])=>(
             <button key={key} onClick={()=>setTab(key)} style={{
-              flex:1,padding:"10px 0",borderRadius:11,cursor:"pointer",fontSize:13,fontWeight:600,
+              flex:1,padding:"10px 0",borderRadius:12,cursor:"pointer",fontSize:12,fontWeight:600,
+              letterSpacing:"0.01em",
               border:`1px solid ${tab===key?C.brand:C.line}`,
-              background:tab===key?C.raised:"transparent",color:tab===key?C.text:C.muted}}>
+              background:tab===key?C.raised:"transparent",
+              color:tab===key?C.text:`${C.muted}cc`,
+              boxShadow:tab===key?`0 4px 14px ${C.brand}25`:"none",
+            }}>
               {label}
             </button>
           ))}
@@ -306,40 +317,44 @@ export default function App(){
 
         {tab==="db"&&(
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 12px",
-              background:C.surface,border:`1px solid ${C.line}`,borderRadius:12,marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 13px",
+              background:C.surface,border:`1px solid ${C.line}`,borderRadius:13,marginBottom:12}}>
               <Search size={17} color={C.muted}/>
               <input value={query} onChange={e=>{setQuery(e.target.value);setVisible(40);}}
                 placeholder="Søg disc eller mærke…"
                 style={{flex:1,background:"transparent",border:"none",outline:"none",
-                  color:C.text,padding:"12px 0",fontSize:15}}/>
+                  color:C.text,padding:"13px 0",fontSize:15}}/>
               {query&&<button onClick={()=>{setQuery("");setVisible(40);}} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
             </div>
-            <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
               {["Alle",...TYPES].map(t=>(
                 <button key={t} onClick={()=>{setTypeFilter(t);setVisible(40);}} style={{
-                  padding:"6px 12px",borderRadius:999,cursor:"pointer",fontSize:12,fontWeight:500,
+                  padding:"7px 13px",borderRadius:999,cursor:"pointer",fontSize:12,fontWeight:500,
+                  letterSpacing:"0.02em",
                   border:`1px solid ${typeFilter===t?C.brand:C.line}`,
-                  background:typeFilter===t?C.raised:"transparent",color:typeFilter===t?C.text:C.muted}}>
+                  background:typeFilter===t?C.raised:"transparent",
+                  color:typeFilter===t?C.text:C.muted,
+                  boxShadow:typeFilter===t?`0 2px 8px ${C.brand}20`:"none"}}>
                   {t}
                 </button>
               ))}
               <button onClick={()=>{setShowOnlyWishlist(v=>!v);setVisible(40);}} style={{
-                padding:"6px 12px",borderRadius:999,cursor:"pointer",fontSize:12,fontWeight:500,
+                padding:"7px 13px",borderRadius:999,cursor:"pointer",fontSize:12,fontWeight:500,
+                letterSpacing:"0.02em",
                 display:"flex",alignItems:"center",gap:5,
                 border:`1px solid ${showOnlyWishlist?C.distance:C.line}`,
-                background:showOnlyWishlist?`${C.distance}15`:"transparent",
+                background:showOnlyWishlist?`${C.distance}12`:"transparent",
                 color:showOnlyWishlist?C.distance:C.muted}}>
                 <Heart size={12} fill={showOnlyWishlist?"currentColor":"none"}/>
                 Ønskeliste{wishlist.length>0?` (${wishlist.length})`:""}
               </button>
             </div>
             <select value={brandFilter} onChange={e=>{setBrandFilter(e.target.value);setVisible(40);}}
-              style={{width:"100%",padding:"10px 12px",marginBottom:10,background:C.surface,
-                border:`1px solid ${C.line}`,borderRadius:10,color:C.text,fontSize:14,cursor:"pointer"}}>
+              style={{width:"100%",padding:"11px 13px",marginBottom:12,background:C.surface,
+                border:`1px solid ${C.line}`,borderRadius:12,color:C.text,fontSize:14,cursor:"pointer"}}>
               {brands.map(b=><option key={b} value={b} style={{background:C.surface}}>{b}</option>)}
             </select>
-            <div style={{fontSize:12,color:C.muted,marginBottom:10}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:12,letterSpacing:"0.02em"}}>
               {filtered.length.toLocaleString("da")} discs{filtered.length>visibleCount&&` — viser ${visibleCount}`}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -361,8 +376,9 @@ export default function App(){
             </div>
             {filtered.length>visibleCount&&(
               <button onClick={()=>setVisible(v=>v+40)} style={{
-                width:"100%",marginTop:14,padding:"12px 0",borderRadius:11,cursor:"pointer",
-                background:"transparent",border:`1px solid ${C.line}`,color:C.muted,fontSize:14}}>
+                width:"100%",marginTop:16,padding:"13px 0",borderRadius:13,cursor:"pointer",
+                background:"transparent",border:`1px solid ${C.line}`,color:C.muted,fontSize:14,
+                letterSpacing:"0.01em"}}>
                 Vis {Math.min(40,filtered.length-visibleCount)} mere
               </button>
             )}
@@ -370,7 +386,7 @@ export default function App(){
         )}
 
         {tab==="owned"&&(
-          <div style={{display:"flex",flexDirection:"column",gap:18}}>
+          <div style={{display:"flex",flexDirection:"column",gap:20}}>
             {ownedDiscs.length===0?(
               <Empty text="Du ejer ingen discs endnu. Gå til Database og tilføj dem du har."/>
             ):(
@@ -411,11 +427,11 @@ export default function App(){
             <div>
               {!showGenerator&&(
                 <>
-                  <button onClick={()=>setShowNewChoice(v=>!v)} style={{...btn("primary"),marginBottom:showNewChoice?10:14}}>
+                  <button onClick={()=>setShowNewChoice(v=>!v)} style={{...btn("primary"),marginBottom:showNewChoice?12:16}}>
                     + Ny bag
                   </button>
                   {showNewChoice&&(
-                    <div style={{display:"flex",gap:8,marginBottom:14}}>
+                    <div style={{display:"flex",gap:8,marginBottom:16}}>
                       <button onClick={createEmptyBag} style={btn()}>Tom bag</button>
                       <button onClick={()=>{setShowGenerator(true);setShowNewChoice(false);}} style={btn()}>🎲 Tilfældig bag</button>
                     </div>
@@ -427,14 +443,15 @@ export default function App(){
                       {bags.map(b=>(
                         <button key={b.id} onClick={()=>setOpenBagId(b.id)} style={{
                           display:"flex",justifyContent:"space-between",alignItems:"center",
-                          padding:14,borderRadius:14,cursor:"pointer",textAlign:"left",
-                          background:C.surface,border:`1px solid ${C.line}`,color:C.text}}>
+                          padding:16,borderRadius:16,cursor:"pointer",textAlign:"left",
+                          background:C.surface,border:`1px solid ${C.line}`,color:C.text,
+                          boxShadow:`0 0 12px ${C.brand}06`}}>
                           <span style={{fontWeight:600}}>{b.name}</span>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <span style={{fontSize:13,color:C.muted}}>{b.discIds.length} discs</span>
+                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                            <span style={{fontSize:13,color:C.muted,letterSpacing:"0.02em"}}>{b.discIds.length} discs</span>
                             <button onClick={e=>{e.stopPropagation();shareBag(b);}}
                               style={{fontSize:12,color:C.brand,background:"transparent",border:"none",
-                                cursor:"pointer",padding:"2px 6px",borderRadius:6}}>Del</button>
+                                cursor:"pointer",padding:"3px 8px",borderRadius:7,letterSpacing:"0.02em"}}>Del</button>
                           </div>
                         </button>
                       ))}
@@ -443,7 +460,7 @@ export default function App(){
                 </>
               )}
               {showGenerator&&(
-                <GeneratorPanel ownedDiscs={ownedDiscs} onSave={saveGeneratedBag} onCancel={()=>setShowGenerator(false)}/>
+                <GeneratorPanel ownedDiscs={resolvedOwned} onSave={saveGeneratedBag} onCancel={()=>setShowGenerator(false)}/>
               )}
             </div>
           )
@@ -452,34 +469,34 @@ export default function App(){
         {tab==="flight"&&(
           <div>
             <select value={flightSourceKey} onChange={e=>setFlightSourceKey(e.target.value)}
-              style={{width:"100%",padding:"10px 12px",marginBottom:12,background:C.surface,
-                border:`1px solid ${C.line}`,borderRadius:10,color:C.text,fontSize:14,cursor:"pointer"}}>
+              style={{width:"100%",padding:"11px 13px",marginBottom:14,background:C.surface,
+                border:`1px solid ${C.line}`,borderRadius:12,color:C.text,fontSize:14,cursor:"pointer"}}>
               <option value="owned">Mine discs (alle ejede)</option>
               {bags.map(b=><option key={b.id} value={"bag:"+b.id}>{b.name}</option>)}
             </select>
-            <div style={{padding:14,background:C.bg,border:`1px solid ${C.line}`,borderRadius:16,marginBottom:12}}>
+            <div style={{padding:16,background:C.bg,border:`1px solid ${C.line}`,borderRadius:18,marginBottom:14}}>
               {flightDiscs.length===0?(
                 <Empty text="Ingen discs at vise her endnu."/>
               ):(
                 <FlightMatrix discs={flightDiscs} selectedId={flightSelected} onSelect={setFlightSelected}/>
               )}
             </div>
-            <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:6,fontSize:12,color:C.muted}}>
+            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:8,fontSize:12,color:C.muted}}>
               {TYPES.map(t=>(
-                <span key={t} style={{display:"flex",alignItems:"center",gap:5}}>
+                <span key={t} style={{display:"flex",alignItems:"center",gap:5,letterSpacing:"0.02em"}}>
                   <span style={{width:9,height:9,borderRadius:"50%",background:TYPE_COLOR[t]}}/>{t}
                 </span>
               ))}
             </div>
-            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:18,letterSpacing:"0.01em"}}>
               Disc-farve vises i matrixen hvis du har valgt én under ✎ i Mine discs.
             </div>
             {flightSelectedDisc&&<DiscCard disc={flightSelectedDisc}/>}
           </div>
         )}
 
-        {tab==="runde"&&(
-          <RoundTracker rounds={rounds} setRounds={setRounds}/>
+        {tab==="stats"&&(
+          <StatsPanel resolvedOwned={resolvedOwned}/>
         )}
 
       </div>

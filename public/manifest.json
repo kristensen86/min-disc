@@ -1,11 +1,11 @@
 {
-  "name": "Min Disc",
-  "short_name": "Min Disc",
-  "description": "Disc golf disc tracker",
+  "name": "BagUp",
+  "short_name": "BagUp",
+  "description": "Disc golf bag & collection tracker",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f1714",
-  "theme_color": "#f2c14e",
+  "background_color": "#0a0f0a",
+  "theme_color": "#4ade80",
   "icons": [
     {
       "src": "/icon.svg",

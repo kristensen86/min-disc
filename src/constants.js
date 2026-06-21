@@ -1,13 +1,13 @@
 export const C = {
-  bg:"#0f1714",surface:"#18241f",raised:"#1f3029",line:"#2c4036",
-  text:"#e8efe9",muted:"#8aa597",brand:"#f2c14e",
-  putter:"#5bb4ff",midrange:"#5fd486",fairway:"#f2b13c",distance:"#ff6b6b",
+  bg:"#0a0f0a",surface:"#111811",raised:"#182018",line:"#1e2e1e",
+  text:"#e8f0e8",muted:"#6b8f6b",brand:"#4ade80",
+  putter:"#93c5fd",midrange:"#86efac",fairway:"#fdba74",distance:"#fca5a5",
 };
 export const TYPE_COLOR={Putter:C.putter,Midrange:C.midrange,Fairway:C.fairway,Distance:C.distance};
-export const TRACE=["#f2c14e","#5bb4ff","#5fd486","#ff6b6b","#c77dff","#ff9f43","#4dd4c0","#ff6fb5"];
+export const TRACE=["#4ade80","#93c5fd","#86efac","#fca5a5","#c084fc","#fdba74","#34d399","#f9a8d4"];
 export const TYPES=["Putter","Midrange","Fairway","Distance"];
 export const DISC_COLORS=["#ff4757","#ff6348","#ffa502","#eccc68","#2ed573","#1e90ff","#a29bfe","#fd79a8","#ffffff","#b2bec3","#636e72","#2d3436"];
-export const WEAR=[["ny","Ny","#5fd486"],["brugt","Brugt","#f2c14e"],["beat-in","Beat in","#ff9f43"]];
+export const WEAR=[["ny","Ny","#86efac"],["brugt","Brugt","#fdba74"],["beat-in","Beat in","#fca5a5"]];
 export const FLIGHT_MAX_M=150;
 
 export function typeFromSpeed(s){if(s<=3)return"Putter";if(s<=5)return"Midrange";if(s<=8)return"Fairway";return"Distance";}
