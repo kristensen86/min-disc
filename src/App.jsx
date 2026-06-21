@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag } from "lucide-react";
+import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
@@ -325,15 +325,19 @@ export default function App() {
   );
 
   const TABS = [
-    ["db", "Database"], ["owned", "Mine discs"], ["bags", "Bags"],
-    ["flight", "Flight"], ["stats", "Statistik"],
-    ["salg", forSaleDiscs.length > 0 ? `Salg (${forSaleDiscs.length})` : "Salg"],
+    ["db",     "Søg",    Search],
+    ["owned",  "Mine",   Library],
+    ["bags",   "Bags",   Briefcase],
+    ["flight", "Flight", Activity],
+    ["stats",  "Stats",  BarChart2],
+    ["salg",   "Salg",   Tag],
+    ["wish",   "Ønsker", Bookmark],
   ];
 
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: "100vh", fontFamily: "'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
       <style>{fontStyle}</style>
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 60px" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 84px" }}>
 
         {/* Header */}
         <div style={{ background: `linear-gradient(180deg, ${C.surface} 0%, transparent 100%)`, margin: "0 -16px", padding: "20px 16px 18px", marginBottom: 4 }}>
@@ -357,22 +361,6 @@ export default function App() {
             <span style={{ color: C.muted }}>Mini-database aktiv. Kør <code style={{ color: C.brand }}>node fetch-discs.mjs</code> for fuld database.</span>
           </div>
         )}
-
-        {/* Navigation — 6 tabs */}
-        <nav style={{ display: "flex", gap: 4, marginBottom: 20 }}>
-          {TABS.map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)} style={{
-              flex: 1, padding: "9px 0", borderRadius: 12, cursor: "pointer",
-              fontSize: 11, fontWeight: 600, letterSpacing: "0.01em",
-              border: `1px solid ${tab === key ? C.brand : C.line}`,
-              background: tab === key ? C.raised : "transparent",
-              color: tab === key ? C.text : `${C.muted}bb`,
-              boxShadow: tab === key ? `0 4px 14px ${C.brand}25` : "none",
-            }}>
-              {label}
-            </button>
-          ))}
-        </nav>
 
         {/* DATABASE */}
         {tab === "db" && (
@@ -570,7 +558,79 @@ export default function App() {
           />
         )}
 
+        {/* ØNSKELISTE */}
+        {tab === "wish" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {wishlist.length === 0 ? (
+              <Empty text="Ingen ønsker endnu. Tilføj discs til din ønskeliste fra Søg-fanen."/>
+            ) : (
+              allDiscs.filter(d => wishlist.includes(d.id)).map(d => {
+                const count = owned.filter(x => x.discId === d.id).length;
+                return (
+                  <DiscCard key={d.id} disc={d} actions={[
+                    { icon: Plus, badge: count > 0 ? count : null, label: "Tilføj til mine discs", onClick: () => addToOwned(d.id), color: count > 0 ? C.midrange : C.brand },
+                    { icon: Bookmark, iconProps: { fill: "currentColor" }, label: "Fjern fra ønskeliste", onClick: () => removeFromWishlist(d.id), color: C.distance },
+                  ]}/>
+                );
+              })
+            )}
+          </div>
+        )}
+
       </div>
+
+      {/* Fixed bottom navigation */}
+      <nav style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
+        height: 64,
+        background: `${C.surface}f2`,
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderTop: `1px solid ${C.line}`,
+        boxShadow: `0 -4px 24px rgba(0,0,0,0.35)`,
+      }}>
+        <div style={{ maxWidth: 560, margin: "0 auto", height: "100%", display: "flex" }}>
+          {TABS.map(([key, label, Icon]) => {
+            const active = tab === key;
+            const badge = key === "salg" ? forSaleDiscs.length : key === "wish" ? wishlist.length : 0;
+            return (
+              <button key={key} onClick={() => setTab(key)} style={{
+                flex: 1, height: "100%", display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 3,
+                background: "transparent", border: "none", cursor: "pointer",
+                padding: "0 2px",
+                color: active ? C.brand : C.muted,
+                position: "relative",
+              }}>
+                {active && (
+                  <span style={{
+                    position: "absolute", top: 0, left: "15%", right: "15%",
+                    height: 2, borderRadius: "0 0 3px 3px",
+                    background: C.brand,
+                    boxShadow: `0 0 8px ${C.brand}90`,
+                  }}/>
+                )}
+                <div style={{ position: "relative", lineHeight: 0 }}>
+                  <Icon size={22} strokeWidth={active ? 2.2 : 1.8}/>
+                  {badge > 0 && (
+                    <span style={{
+                      position: "absolute", top: -5, right: -7,
+                      background: C.brand, color: C.bg,
+                      fontSize: 9, fontWeight: 700, lineHeight: 1,
+                      padding: "2px 4px", borderRadius: 999,
+                      minWidth: 16, textAlign: "center",
+                    }}>{badge}</span>
+                  )}
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1,
+                }}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
     </div>
   );
 }
