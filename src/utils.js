@@ -46,3 +46,13 @@ export function resolveDisc(disc,overrides){
   const ov=overrides[disc.uid??disc.id];
   return ov?{...disc,...ov}:disc;
 }
+
+export function conditionText(c){
+  const n=Number(c);
+  if(n<=1)return"Ødelagt";
+  if(n<=3)return"Meget brugt";
+  if(n<=5)return"Brugt";
+  if(n<=7)return"God stand";
+  if(n<=9)return"Næsten ny";
+  return"Ny disc";
+}
