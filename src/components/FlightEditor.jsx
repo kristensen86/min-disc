@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, WEAR, DISC_COLORS } from "../constants";
+import { C, DISC_COLORS } from "../constants";
 import { conditionText, suggestSalePrices } from "../utils";
 import { miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
@@ -9,7 +9,7 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
   const [vals, setVals] = useState({
     speed: cur.speed, glide: cur.glide, turn: cur.turn, fade: cur.fade,
     pColor: cur.pColor || null, pWeight: cur.pWeight || "", pPlastic: cur.pPlastic || "",
-    pNote: cur.pNote || "", pWear: cur.pWear || null, pPhoto: cur.pPhoto || null,
+    pNote: cur.pNote || "", pPhoto: cur.pPhoto || null,
     forSale: cur.forSale || false,
     condition: cur.condition ?? 8,
     hasInk: cur.hasInk ?? false,
@@ -78,20 +78,6 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
                 <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handlePhotoSelect}/>
               </label>
             )}
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ ...label, marginBottom: 6 }}>Slid-status</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {WEAR.map(([val, lbl, color]) => (
-                <button key={val} onClick={() => set("pWear")(vals.pWear === val ? null : val)} style={{
-                  padding: "6px 12px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 500,
-                  border: `1px solid ${vals.pWear === val ? color : C.line}`,
-                  background: vals.pWear === val ? `${color}18` : "transparent",
-                  color: vals.pWear === val ? color : C.muted,
-                }}>{lbl}</button>
-              ))}
-            </div>
           </div>
 
           <div style={{ marginBottom: 12 }}>
