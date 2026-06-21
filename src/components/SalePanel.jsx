@@ -4,7 +4,7 @@ import { C } from "../constants";
 import { conditionText } from "../utils";
 import { btn, Empty } from "./ui";
 
-function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold }) {
+function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit }) {
   const cond = disc.condition ?? 8;
   return (
     <div
@@ -65,30 +65,37 @@ function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDro
         </div>
       </div>
 
-      {/* Price + sold button */}
+      {/* Price + action buttons */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
         {disc.price ? (
           <div style={{ fontSize: 18, fontWeight: 700, color: C.brand, marginBottom: 6 }}>{disc.price}kr</div>
         ) : (
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>ingen pris</div>
         )}
-        <button
-          onClick={e => { e.stopPropagation(); onSold(); }}
-          style={{
-            fontSize: 11, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
-            background: `${C.midrange}14`, border: `1px solid ${C.midrange}40`,
-            color: C.midrange, fontWeight: 600, letterSpacing: "0.03em",
-            display: "block",
-          }}
-        >
-          Solgt ✓
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(); }}
+            style={{
+              fontSize: 11, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+              background: `${C.brand}12`, border: `1px solid ${C.brand}35`,
+              color: C.brand, fontWeight: 600, letterSpacing: "0.03em",
+            }}
+          >✎ Rediger</button>
+          <button
+            onClick={e => { e.stopPropagation(); onSold(); }}
+            style={{
+              fontSize: 11, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+              background: `${C.midrange}14`, border: `1px solid ${C.midrange}40`,
+              color: C.midrange, fontWeight: 600, letterSpacing: "0.03em",
+            }}
+          >Solgt ✓</button>
+        </div>
       </div>
     </div>
   );
 }
 
-export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold }) {
+export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdit }) {
   const [draggingUid, setDraggingUid] = useState(null);
   const [dragOverUid, setDragOverUid] = useState(null);
 
@@ -117,7 +124,7 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold }) {
       const cond = `${d.condition ?? 8}/10`;
       const ink = d.hasInk ? "med ink" : "uden ink";
       const price = d.price ? `${d.price}kr` : "DM";
-      return `${d.name}${note} ${cond} ${ink} - ${price}`;
+      return `${d.name} ${d.brand}${note} ${cond} ${ink} - ${price}`;
     });
     const text = lines.join("\n");
     if (navigator.clipboard) {
@@ -174,6 +181,7 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold }) {
             }}
             onDragEnd={() => { setDraggingUid(null); setDragOverUid(null); }}
             onSold={() => onSold(d.uid)}
+            onEdit={() => onEdit(d.uid)}
           />
         ))}
       </div>
@@ -184,8 +192,8 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold }) {
         padding: "11px 14px", fontSize: 12, color: C.muted, lineHeight: 1.5,
       }}>
         <div style={{ fontWeight: 600, marginBottom: 4, color: C.text }}>Format til Facebook:</div>
-        <code style={{ color: C.brand }}>Navn note tilstand/10 ink-status - priskr</code>
-        <div style={{ marginTop: 4, opacity: 0.7 }}>fx: Zone SS first run 9/10 uden ink - 175kr</div>
+        <code style={{ color: C.brand }}>Navn Producent note tilstand/10 ink - priskr</code>
+        <div style={{ marginTop: 4, opacity: 0.7 }}>fx: Zone Discraft SS first run 9/10 uden ink - 175kr</div>
       </div>
     </div>
   );

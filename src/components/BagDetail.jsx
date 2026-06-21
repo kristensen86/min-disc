@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Search, Plus, Trash2, X } from "lucide-react";
+import { Search, Plus, Trash2, X, Pencil } from "lucide-react";
 import { C, TYPES } from "../constants";
 import { btn, iconBtn, secHdr, Empty } from "./ui";
 import { DiscCard } from "./DiscCard";
 
-export function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,onRemoveDisc}){
+export function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAddDisc,onRemoveDisc,onEditDisc}){
   const[query,setQuery]=useState("");
   if(!bag)return <Empty text="Bag ikke fundet."/>;
   const bagDiscs=bag.discIds.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean);
@@ -50,10 +50,16 @@ export function BagDetail({bag,ownedDiscs,allDiscs,onBack,onRename,onDelete,onAd
           <section key={t} style={{marginBottom:18}}>
             <h3 style={secHdr(t)}>{t}</h3>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {bagDiscs.filter(d=>d.type===t).map(d=>(
-                <DiscCard key={d.id} disc={d}
-                  actions={[{icon:Trash2,label:"Fjern fra bag",onClick:()=>onRemoveDisc(d.id),color:C.distance}]}/>
-              ))}
+              {bagDiscs.filter(d=>d.type===t).map(d=>{
+                const ownedInst=ownedDiscs.find(od=>od.id===d.id);
+                return(
+                  <DiscCard key={d.id} disc={d}
+                    actions={[
+                      ...(onEditDisc&&ownedInst?[{icon:Pencil,label:"Rediger disc",onClick:()=>onEditDisc(d.id),color:C.muted}]:[]),
+                      {icon:Trash2,label:"Fjern fra bag",onClick:()=>onRemoveDisc(d.id),color:C.distance},
+                    ]}/>
+                );
+              })}
             </div>
           </section>
         ))

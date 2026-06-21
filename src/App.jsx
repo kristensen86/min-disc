@@ -211,6 +211,15 @@ export default function App() {
       };
     });
   }
+  function openEditForDisc(uid) {
+    setTab("owned");
+    setEditingDiscUid(uid);
+    setOpenBagId(null);
+  }
+  function openEditForDiscByDiscId(discId) {
+    const inst = ownedDiscs.find(d => d.id === discId);
+    if (inst) openEditForDisc(inst.uid);
+  }
   function markAsSold(uid) {
     setOverrides(o => ({ ...o, [uid]: { ...(o[uid] || {}), forSale: false } }));
     setSaleOrder(s => s.filter(id => id !== uid));
@@ -448,7 +457,8 @@ export default function App() {
               onRename={() => renameBag(openBagId)}
               onDelete={() => deleteBag(openBagId)}
               onAddDisc={discId => addDiscToBag(openBagId, discId)}
-              onRemoveDisc={discId => removeDiscFromBag(openBagId, discId)}/>
+              onRemoveDisc={discId => removeDiscFromBag(openBagId, discId)}
+              onEditDisc={openEditForDiscByDiscId}/>
           ) : (
             <div>
               {!showGenerator && (
@@ -532,6 +542,7 @@ export default function App() {
             saleOrder={saleOrder}
             setSaleOrder={setSaleOrder}
             onSold={markAsSold}
+            onEdit={openEditForDisc}
           />
         )}
 
