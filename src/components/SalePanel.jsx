@@ -1,11 +1,26 @@
 import { useState, useMemo } from "react";
 import { GripVertical } from "lucide-react";
 import { C } from "../constants";
-import { conditionText } from "../utils";
-import { btn, Empty } from "./ui";
+import { conditionText, saleNumber, salePriceStr } from "../utils";
+import { Empty } from "./ui";
+import { SaleGrid } from "./SaleGrid";
+import { SaleHistory } from "./SaleHistory";
 
 function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit }) {
   const cond = disc.condition ?? 8;
+  const num = saleNumber(disc);
+  const priceStr = disc.saleBIN || disc.price
+    ? disc.saleMP
+      ? `MP: ${disc.saleMP}kr / BIN: ${disc.saleBIN || disc.price}kr`
+      : `BIN: ${disc.saleBIN || disc.price}kr`
+    : "ingen pris";
+
+  function handleSold() {
+    const buyer = window.prompt("Solgt! Købers navn (valgfrit — tryk OK for at springe over):", "");
+    if (buyer === null) return;
+    onSold(buyer);
+  }
+
   return (
     <div
       draggable
@@ -26,12 +41,10 @@ function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDro
         transition: "border-color 0.1s, background 0.1s",
       }}
     >
-      {/* Drag handle */}
       <div style={{ color: C.muted, flexShrink: 0, opacity: 0.5 }}>
         <GripVertical size={16}/>
       </div>
 
-      {/* Photo or type badge */}
       {disc.pPhoto ? (
         <img src={disc.pPhoto} alt={disc.name} style={{
           width: 42, height: 42, borderRadius: "50%", objectFit: "cover",
@@ -48,30 +61,35 @@ function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDro
         </div>
       )}
 
-      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, color: C.text, fontSize: 14, marginBottom: 2 }}>{disc.name}</div>
-        <div style={{ fontSize: 12, color: C.muted, letterSpacing: "0.01em" }}>{disc.brand} · {disc.type}</div>
-        <div style={{ display: "flex", gap: 8, marginTop: 5, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
+          {num && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, color: C.brand,
+              background: `${C.brand}15`, border: `1px solid ${C.brand}40`,
+              padding: "2px 7px", borderRadius: 999, letterSpacing: "0.02em", flexShrink: 0,
+            }}>{num}</span>
+          )}
+          <span style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>{disc.name}</span>
+        </div>
+        <div style={{ fontSize: 12, color: C.muted, letterSpacing: "0.01em", marginBottom: 4 }}>{disc.brand} · {disc.type}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>
             {cond}/10 · {conditionText(cond)}
           </span>
-          <span style={{ fontSize: 11, color: C.muted }}>
-            {disc.hasInk ? "med ink" : "uden ink"}
-          </span>
+          <span style={{ fontSize: 11, color: C.muted }}>{disc.hasInk ? "med ink" : "uden ink"}</span>
           {disc.saleNote && (
             <span style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>"{disc.saleNote}"</span>
           )}
         </div>
       </div>
 
-      {/* Price + action buttons */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
-        {disc.price ? (
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.brand, marginBottom: 6 }}>{disc.price}kr</div>
-        ) : (
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>ingen pris</div>
-        )}
+        <div style={{
+          fontSize: disc.saleMP ? 12 : 15, fontWeight: 700,
+          color: disc.saleBIN || disc.price ? C.brand : C.muted,
+          marginBottom: 6, lineHeight: 1.3,
+        }}>{priceStr}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <button
             onClick={e => { e.stopPropagation(); onEdit(); }}
@@ -82,7 +100,7 @@ function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDro
             }}
           >✎ Rediger</button>
           <button
-            onClick={e => { e.stopPropagation(); onSold(); }}
+            onClick={e => { e.stopPropagation(); handleSold(); }}
             style={{
               fontSize: 11, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
               background: `${C.midrange}14`, border: `1px solid ${C.midrange}40`,
@@ -95,7 +113,7 @@ function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDro
   );
 }
 
-export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdit }) {
+export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdit, username, soldHistory, onClearHistory }) {
   const [draggingUid, setDraggingUid] = useState(null);
   const [dragOverUid, setDragOverUid] = useState(null);
 
@@ -118,15 +136,37 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
     setSaleOrder(next);
   }
 
-  function copyList() {
-    const lines = orderedDiscs.map(d => {
+  function buildListText() {
+    return orderedDiscs.map(d => {
+      const num = saleNumber(d);
       const note = d.saleNote ? ` ${d.saleNote}` : "";
       const cond = `${d.condition ?? 8}/10`;
       const ink = d.hasInk ? "med ink" : "uden ink";
-      const price = d.price ? `${d.price}kr` : "DM";
-      return `${d.name} ${d.brand}${note} ${cond} ${ink} - ${price}`;
-    });
-    const text = lines.join("\n");
+      const price = salePriceStr(d);
+      return `${num ? num + " " : ""}${d.name} ${d.brand}${note} ${cond} ${ink} - ${price}`;
+    }).join("\n");
+  }
+
+  async function shareList() {
+    const text = buildListText();
+    if (navigator.share) {
+      try {
+        await navigator.share({ text, title: "BagUp salgsliste" });
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      alert("Salgsliste kopieret til udklipsholder!");
+    } else {
+      prompt("Kopiér salgsliste:", text);
+    }
+  }
+
+  function copyList() {
+    const text = buildListText();
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text)
         .then(() => alert("Salgsliste kopieret til udklipsholder!"))
@@ -136,7 +176,7 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
     }
   }
 
-  if (forSaleDiscs.length === 0) {
+  if (forSaleDiscs.length === 0 && (!soldHistory || soldHistory.length === 0)) {
     return (
       <Empty text="Ingen discs til salg endnu. Åbn ✎ på en disc i Mine discs, og markér den som til salg."/>
     );
@@ -144,57 +184,71 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Summary bar */}
-      <div style={{
-        background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13,
-        padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <span style={{ fontSize: 13, color: C.muted, letterSpacing: "0.01em" }}>
-          {orderedDiscs.length} disc{orderedDiscs.length !== 1 ? "s" : ""} til salg
-        </span>
-        <span style={{ fontSize: 11, color: C.muted, opacity: 0.7 }}>Træk for at sortere</span>
-      </div>
+      {forSaleDiscs.length > 0 && (
+        <>
+          <div style={{
+            background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13,
+            padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span style={{ fontSize: 13, color: C.muted, letterSpacing: "0.01em" }}>
+              {orderedDiscs.length} disc{orderedDiscs.length !== 1 ? "s" : ""} til salg
+            </span>
+            <span style={{ fontSize: 11, color: C.muted, opacity: 0.7 }}>Træk for at sortere</span>
+          </div>
 
-      {/* Copy button */}
-      <button onClick={copyList} style={{
-        ...btn("primary"), display: "flex", alignItems: "center",
-        justifyContent: "center", gap: 8, width: "100%",
-      }}>
-        📋 Kopier salgsliste til Facebook
-      </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={shareList} style={{
+              flex: 1, padding: "11px 0", borderRadius: 13, cursor: "pointer",
+              border: `1px solid ${C.brand}`, background: C.raised,
+              color: C.text, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
+              boxShadow: `0 2px 12px ${C.brand}18`,
+            }}>
+              ↗ Del liste
+            </button>
+            <button onClick={copyList} style={{
+              flex: 1, padding: "11px 0", borderRadius: 13, cursor: "pointer",
+              border: `1px solid ${C.line}`, background: "transparent",
+              color: C.muted, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
+            }}>
+              📋 Kopier
+            </button>
+          </div>
 
-      {/* Disc list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {orderedDiscs.map(d => (
-          <SaleCard
-            key={d.uid}
-            disc={d}
-            isDragging={draggingUid === d.uid}
-            isDragOver={dragOverUid === d.uid}
-            onDragStart={() => setDraggingUid(d.uid)}
-            onDragOver={e => { e.preventDefault(); setDragOverUid(d.uid); }}
-            onDrop={e => {
-              e.preventDefault();
-              if (draggingUid && draggingUid !== d.uid) reorder(draggingUid, d.uid);
-              setDraggingUid(null);
-              setDragOverUid(null);
-            }}
-            onDragEnd={() => { setDraggingUid(null); setDragOverUid(null); }}
-            onSold={() => onSold(d.uid)}
-            onEdit={() => onEdit(d.uid)}
-          />
-        ))}
-      </div>
+          <SaleGrid orderedDiscs={orderedDiscs} username={username}/>
 
-      {/* Facebook format hint */}
-      <div style={{
-        background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13,
-        padding: "11px 14px", fontSize: 12, color: C.muted, lineHeight: 1.5,
-      }}>
-        <div style={{ fontWeight: 600, marginBottom: 4, color: C.text }}>Format til Facebook:</div>
-        <code style={{ color: C.brand }}>Navn Producent note tilstand/10 ink - priskr</code>
-        <div style={{ marginTop: 4, opacity: 0.7 }}>fx: Zone Discraft SS first run 9/10 uden ink - 175kr</div>
-      </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {orderedDiscs.map(d => (
+              <SaleCard
+                key={d.uid}
+                disc={d}
+                isDragging={draggingUid === d.uid}
+                isDragOver={dragOverUid === d.uid}
+                onDragStart={() => setDraggingUid(d.uid)}
+                onDragOver={e => { e.preventDefault(); setDragOverUid(d.uid); }}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (draggingUid && draggingUid !== d.uid) reorder(draggingUid, d.uid);
+                  setDraggingUid(null);
+                  setDragOverUid(null);
+                }}
+                onDragEnd={() => { setDraggingUid(null); setDragOverUid(null); }}
+                onSold={buyer => onSold(d.uid, buyer)}
+                onEdit={() => onEdit(d.uid)}
+              />
+            ))}
+          </div>
+
+          <div style={{
+            background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13,
+            padding: "11px 14px", fontSize: 12, color: C.muted, lineHeight: 1.5,
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: 4, color: C.text }}>Format:</div>
+            <code style={{ color: C.brand }}>1.1 Navn Producent note tilstand/10 ink - MP: xkr / BIN: ykr</code>
+          </div>
+        </>
+      )}
+
+      <SaleHistory history={soldHistory} onClear={onClearHistory}/>
     </div>
   );
 }

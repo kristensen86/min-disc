@@ -1,4 +1,4 @@
-const CACHE = "min-disc-v1";
+const CACHE = "bagup-v1";
 const PRECACHE = ["/", "/index.html"];
 
 self.addEventListener("install", e => {

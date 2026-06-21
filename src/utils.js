@@ -56,3 +56,42 @@ export function conditionText(c){
   if(n<=9)return"Næsten ny";
   return"Ny disc";
 }
+
+export function saleNumber(disc){
+  const g=disc.saleGroup,p=disc.salePos;
+  if(!g&&!p)return"";
+  return`${g??"?"}.${p??"?"}`;
+}
+
+export function salePriceStr(disc){
+  const mp=disc.saleMP;
+  const bin=disc.saleBIN||disc.price;
+  if(mp&&bin)return`MP: ${mp}kr / BIN: ${bin}kr`;
+  if(bin)return`BIN: ${bin}kr`;
+  if(mp)return`MP: ${mp}kr`;
+  return"DM";
+}
+
+export function salePriceStrShort(disc){
+  const mp=disc.saleMP;
+  const bin=disc.saleBIN||disc.price;
+  if(mp&&bin)return`${mp} / ${bin}kr`;
+  if(bin)return`${bin}kr`;
+  if(mp)return`${mp}kr`;
+  return"DM";
+}
+
+const SALE_BASE={Putter:80,Midrange:90,Fairway:110,Distance:130};
+function condMult(c){
+  const n=Number(c);
+  if(n>=10)return 1.0;
+  if(n>=8)return 0.8;
+  if(n>=6)return 0.6;
+  if(n>=4)return 0.4;
+  return 0.2;
+}
+export function suggestSalePrices(disc){
+  const base=SALE_BASE[disc.type]||100;
+  const bin=Math.round(base*condMult(disc.condition??8));
+  return{bin,mp:Math.round(bin*0.75)};
+}

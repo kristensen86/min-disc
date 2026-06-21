@@ -38,6 +38,7 @@ export default function App() {
   const [wishlist, setWishlist] = useState([]);
   const [showOnlyWishlist, setShowOnlyWishlist] = useState(false);
   const [saleOrder, setSaleOrder] = useState([]);
+  const [soldHistory, setSoldHistory] = useState([]);
   const [sharedBag, setSharedBag] = useState(() => {
     try { const p = new URLSearchParams(window.location.search).get("bag"); return p ? decodeBag(p) : null; }
     catch { return null; }
@@ -137,6 +138,12 @@ export default function App() {
         try { if (res?.value) saleOrderData = JSON.parse(res.value); } catch (_) {}
       } catch (_) {}
       setSaleOrder(saleOrderData);
+      let historyData = [];
+      try {
+        let res = await store.get("saleHistory");
+        try { if (res?.value) historyData = JSON.parse(res.value); } catch (_) {}
+      } catch (_) {}
+      setSoldHistory(historyData);
       setDataLoaded(true);
     })();
   }, [authUser, authLoading]);
@@ -146,6 +153,7 @@ export default function App() {
   useEffect(() => { if (dataLoaded) store.set("bags", JSON.stringify(bags)).catch(() => {}); }, [bags, dataLoaded]);
   useEffect(() => { if (dataLoaded) store.set("wishlist", JSON.stringify(wishlist)).catch(() => {}); }, [wishlist, dataLoaded]);
   useEffect(() => { if (dataLoaded) store.set("saleOrder", JSON.stringify(saleOrder)).catch(() => {}); }, [saleOrder, dataLoaded]);
+  useEffect(() => { if (dataLoaded) store.set("saleHistory", JSON.stringify(soldHistory)).catch(() => {}); }, [soldHistory, dataLoaded]);
   useEffect(() => { setFlightSelected(null); }, [flightSourceKey]);
   useEffect(() => {
     if (flightSourceKey !== "owned" && !bags.some(b => "bag:" + b.id === flightSourceKey)) setFlightSourceKey("owned");
@@ -205,8 +213,11 @@ export default function App() {
           ...cur, forSale: nowForSale,
           condition: cur.condition ?? 8,
           hasInk: cur.hasInk ?? false,
-          price: cur.price ?? "",
+          saleMP: cur.saleMP ?? "",
+          saleBIN: cur.saleBIN || cur.price || "",
           saleNote: cur.saleNote ?? "",
+          saleGroup: cur.saleGroup ?? "",
+          salePos: cur.salePos ?? "",
         }
       };
     });
@@ -220,7 +231,17 @@ export default function App() {
     const inst = ownedDiscs.find(d => d.id === discId);
     if (inst) openEditForDisc(inst.uid);
   }
-  function markAsSold(uid) {
+  function markAsSold(uid, buyer = "") {
+    const disc = forSaleDiscs.find(d => d.uid === uid);
+    if (disc) {
+      setSoldHistory(h => [...h, {
+        name: disc.name, brand: disc.brand, type: disc.type,
+        price: Number(disc.saleBIN || disc.price) || 0,
+        date: new Date().toLocaleDateString("da-DK"),
+        buyer: buyer || "",
+        condition: disc.condition ?? 8,
+      }]);
+    }
     setOverrides(o => ({ ...o, [uid]: { ...(o[uid] || {}), forSale: false } }));
     setSaleOrder(s => s.filter(id => id !== uid));
   }
@@ -543,6 +564,9 @@ export default function App() {
             setSaleOrder={setSaleOrder}
             onSold={markAsSold}
             onEdit={openEditForDisc}
+            username={authUser?.email}
+            soldHistory={soldHistory}
+            onClearHistory={() => setSoldHistory([])}
           />
         )}
 

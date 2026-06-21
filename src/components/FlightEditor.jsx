@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C, WEAR, DISC_COLORS } from "../constants";
-import { conditionText } from "../utils";
+import { conditionText, suggestSalePrices } from "../utils";
 import { miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
 
@@ -13,8 +13,11 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
     forSale: cur.forSale || false,
     condition: cur.condition ?? 8,
     hasInk: cur.hasInk ?? false,
-    price: cur.price || "",
+    saleMP: cur.saleMP || "",
+    saleBIN: cur.saleBIN || cur.price || "",
     saleNote: cur.saleNote || "",
+    saleGroup: cur.saleGroup ?? "",
+    salePos: cur.salePos ?? "",
   });
   const set = k => v => setVals(p => ({ ...p, [k]: v }));
   const [cropperSrc, setCropperSrc] = useState(null);
@@ -60,7 +63,7 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
 
         {/* Personal details */}
         <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>Min disc</div>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>Mine oplysninger</div>
 
           <div style={{ marginBottom: 12 }}>
             <div style={{ ...label, marginBottom: 6 }}>Foto</div>
@@ -175,19 +178,70 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: "0 0 90px" }}>
-                  Pris (kr)
-                  <input type="number" inputMode="numeric" value={vals.price} min={0}
-                    onChange={e => set("price")(e.target.value)} placeholder="175"
+              {/* Sale number */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: "0 0 70px" }}>
+                  Gruppe (X)
+                  <input type="number" inputMode="numeric" value={vals.saleGroup} min={1}
+                    onChange={e => set("saleGroup")(e.target.value)} placeholder="1"
                     style={inpStyle}/>
                 </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: 1 }}>
-                  Note (fx "first run")
-                  <input type="text" value={vals.saleNote} onChange={e => set("saleNote")(e.target.value)}
-                    placeholder="first run, mystery boks…" style={inpStyle}/>
+                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: "0 0 70px" }}>
+                  Position (Y)
+                  <input type="number" inputMode="numeric" value={vals.salePos} min={1}
+                    onChange={e => set("salePos")(e.target.value)} placeholder="1"
+                    style={inpStyle}/>
                 </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: 1 }}>
+                  Nummer
+                  <div style={{
+                    padding: "7px 9px", borderRadius: 9, background: C.surface, border: `1px solid ${C.line}`,
+                    fontSize: 16, fontWeight: 700, color: vals.saleGroup && vals.salePos ? C.brand : C.muted,
+                    letterSpacing: "0.02em",
+                  }}>
+                    {vals.saleGroup && vals.salePos ? `${vals.saleGroup}.${vals.salePos}` : "—"}
+                  </div>
+                </div>
               </div>
+
+              {/* Prices */}
+              {(() => {
+                const suggested = suggestSalePrices({ type: cur.type, condition: vals.condition });
+                const mpError = vals.saleMP && !vals.saleBIN;
+                return (
+                  <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>BIN (kr) *</span>
+                        {!vals.saleBIN && (
+                          <button type="button" onClick={() => { set("saleBIN")(suggested.bin); set("saleMP")(suggested.mp); }}
+                            style={{ fontSize: 10, color: C.brand, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                            Foreslået: {suggested.bin}kr
+                          </button>
+                        )}
+                      </div>
+                      <input type="number" inputMode="numeric" value={vals.saleBIN} min={0}
+                        onChange={e => set("saleBIN")(e.target.value)} placeholder={String(suggested.bin)}
+                        style={{ ...inpStyle, border: `1px solid ${mpError ? C.distance : C.line}` }}/>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: 1 }}>
+                      <span>MP / Mindstepris (kr)</span>
+                      <input type="number" inputMode="numeric" value={vals.saleMP} min={0}
+                        onChange={e => set("saleMP")(e.target.value)} placeholder={vals.saleBIN ? String(Math.round(Number(vals.saleBIN) * 0.75)) : String(suggested.mp)}
+                        style={inpStyle} disabled={!vals.saleBIN}/>
+                    </div>
+                  </div>
+                );
+              })()}
+              {vals.saleMP && !vals.saleBIN && (
+                <div style={{ fontSize: 11, color: C.distance, marginBottom: 10 }}>MP kræver at BIN også er udfyldt</div>
+              )}
+
+              <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label }}>
+                Note (fx "first run")
+                <input type="text" value={vals.saleNote} onChange={e => set("saleNote")(e.target.value)}
+                  placeholder="first run, mystery boks…" style={inpStyle}/>
+              </label>
             </>
           )}
         </div>
