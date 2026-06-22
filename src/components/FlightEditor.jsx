@@ -16,8 +16,6 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
     saleMP: cur.saleMP || "",
     saleBIN: cur.saleBIN || cur.price || "",
     saleNote: cur.saleNote || "",
-    saleGroup: cur.saleGroup ?? "",
-    salePos: cur.salePos ?? "",
   });
   const set = k => v => setVals(p => ({ ...p, [k]: v }));
   const [cropperSrc, setCropperSrc] = useState(null);
@@ -161,32 +159,6 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
                       color: vals.hasInk === val ? C.brand : C.muted,
                     }}>{lbl}</button>
                   ))}
-                </div>
-              </div>
-
-              {/* Sale number */}
-              <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: "0 0 70px" }}>
-                  Gruppe (X)
-                  <input type="number" inputMode="numeric" value={vals.saleGroup} min={1}
-                    onChange={e => set("saleGroup")(e.target.value)} placeholder="1"
-                    style={inpStyle}/>
-                </label>
-                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: "0 0 70px" }}>
-                  Position (Y)
-                  <input type="number" inputMode="numeric" value={vals.salePos} min={1}
-                    onChange={e => set("salePos")(e.target.value)} placeholder="1"
-                    style={inpStyle}/>
-                </label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: 1 }}>
-                  Nummer
-                  <div style={{
-                    padding: "7px 9px", borderRadius: 9, background: C.surface, border: `1px solid ${C.line}`,
-                    fontSize: 16, fontWeight: 700, color: vals.saleGroup && vals.salePos ? C.brand : C.muted,
-                    letterSpacing: "0.02em",
-                  }}>
-                    {vals.saleGroup && vals.salePos ? `${vals.saleGroup}.${vals.salePos}` : "—"}
-                  </div>
                 </div>
               </div>
 

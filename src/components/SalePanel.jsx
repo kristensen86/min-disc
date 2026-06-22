@@ -1,14 +1,17 @@
 import { useState, useMemo } from "react";
 import { GripVertical } from "lucide-react";
 import { C } from "../constants";
-import { conditionText, saleNumber, salePriceStr } from "../utils";
+import { conditionText, salePriceStr } from "../utils";
+
+const SALE_COLS = 5;
+function gridNum(i) { const r = Math.floor(i / SALE_COLS) + 1, c = (i % SALE_COLS) + 1; return `${r}.${c}`; }
 import { Empty } from "./ui";
 import { SaleGrid } from "./SaleGrid";
 import { SaleHistory } from "./SaleHistory";
 
-function SaleCard({ disc, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit }) {
+function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit }) {
   const cond = disc.condition ?? 8;
-  const num = saleNumber(disc);
+  const num = gridNum(index);
   const priceStr = disc.saleBIN || disc.price
     ? disc.saleMP
       ? `MP: ${disc.saleMP}kr / BIN: ${disc.saleBIN || disc.price}kr`
@@ -137,13 +140,13 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
   }
 
   function buildListText() {
-    return orderedDiscs.map(d => {
-      const num = saleNumber(d);
+    return orderedDiscs.map((d, i) => {
+      const num = gridNum(i);
       const note = d.saleNote ? ` ${d.saleNote}` : "";
       const cond = `${d.condition ?? 8}/10`;
       const ink = d.hasInk ? "med ink" : "uden ink";
       const price = salePriceStr(d);
-      return `${num ? num + " " : ""}${d.name} ${d.brand}${note} ${cond} ${ink} - ${price}`;
+      return `${num} ${d.name} ${d.brand}${note} ${cond} ${ink} - ${price}`;
     }).join("\n");
   }
 
@@ -217,10 +220,11 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
           <SaleGrid orderedDiscs={orderedDiscs} username={username}/>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {orderedDiscs.map(d => (
+            {orderedDiscs.map((d, i) => (
               <SaleCard
                 key={d.uid}
                 disc={d}
+                index={i}
                 isDragging={draggingUid === d.uid}
                 isDragOver={dragOverUid === d.uid}
                 onDragStart={() => setDraggingUid(d.uid)}

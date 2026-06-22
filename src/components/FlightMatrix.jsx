@@ -42,37 +42,70 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
     key: `${csx}_${csp}`,
   }));
 
-  // One label per group
-  const labels = groups.map(g => {
+  const LABEL_H = 8;
+  const GAP = 4;
+
+  // Build candidate label positions for each group
+  function makeCandidates(g) {
+    const { jx, jy } = g;
     const names = g.discs.map(d => d.name.length > 10 ? d.name.slice(0, 9) + "…" : d.name);
     const text = (() => { const t = names.join(", "); return t.length > 20 ? t.slice(0, 19) + "…" : t; })();
     const w = lw(text);
-    const LABEL_H = 8;
-    return {
-      lx: Math.max(w / 2 + 2, Math.min(W - w / 2 - 2, g.jx)),
-      ly: Math.max(padT + LABEL_H / 2, Math.min(H - padB - LABEL_H / 2, g.jy + r + 3 + LABEL_H / 2)),
-      w, text, isSel: g.isSel, g,
-      color: g.discs[0].pColor || TYPE_COLOR[g.discs[0].type],
-    };
-  });
+    // center-x clamped to SVG, anchor-y: label center
+    const cx = x => Math.max(w / 2 + 2, Math.min(W - w / 2 - 2, x));
+    const cy = y => Math.max(padT + LABEL_H / 2, Math.min(H - padB - LABEL_H / 2, y));
+    return [
+      // below
+      { lx: cx(jx), ly: cy(jy + r + GAP + LABEL_H / 2), anchor: "below" },
+      // above
+      { lx: cx(jx), ly: cy(jy - r - GAP - LABEL_H / 2), anchor: "above" },
+      // left (text right-anchored, lx = center of label to left of disc)
+      { lx: cx(jx - r - GAP - w / 2), ly: cy(jy), anchor: "left" },
+      // right
+      { lx: cx(jx + r + GAP + w / 2), ly: cy(jy), anchor: "right" },
+    ].map(c => ({ ...c, w, text, isSel: g.isSel, g, color: g.discs[0].pColor || TYPE_COLOR[g.discs[0].type] }));
+  }
 
-  // 3-pass collision
-  const LABEL_H = 8;
-  for (let pass = 0; pass < 3; pass++) {
-    for (let i = 0; i < labels.length; i++) {
-      for (let j = i + 1; j < labels.length; j++) {
-        const a = labels[i], b = labels[j];
-        if ((a.w / 2 + b.w / 2) - Math.abs(a.lx - b.lx) > 0 && LABEL_H - Math.abs(a.ly - b.ly) > 0) {
-          if (a.ly <= b.ly) { a.ly -= 9; b.ly += 9; }
-          else { a.ly += 9; b.ly -= 9; }
-          [a, b].forEach(l => {
-            l.lx = Math.max(l.w / 2 + 2, Math.min(W - l.w / 2 - 2, l.lx));
-            l.ly = Math.max(padT + LABEL_H / 2, Math.min(H - padB - LABEL_H / 2, l.ly));
-          });
+  function boxesOverlap(ax, ay, aw, bx, by, bw) {
+    return Math.abs(ax - bx) < (aw + bw) / 2 && Math.abs(ay - by) < LABEL_H;
+  }
+
+  function labelHitsMarker(lx, ly, lw, g2) {
+    // Check if this label box overlaps another group's marker circle
+    const dx = lx - g2.jx, dy = ly - g2.jy;
+    const half = lw / 2;
+    // Simplified: overlap if any corner of label box is within marker radius + 2
+    return Math.sqrt(
+      Math.pow(Math.max(0, Math.abs(dx) - half), 2) +
+      Math.pow(Math.max(0, Math.abs(dy) - LABEL_H / 2), 2)
+    ) < r + 2;
+  }
+
+  // Greedy placement: try each candidate in order, pick first non-colliding one
+  const placed = [];
+  const labels = groups.map(g => {
+    const candidates = makeCandidates(g);
+    let chosen = null;
+    for (const cand of candidates) {
+      let ok = true;
+      // Check against already-placed labels
+      for (const pl of placed) {
+        if (boxesOverlap(cand.lx, cand.ly, cand.w, pl.lx, pl.ly, pl.w)) { ok = false; break; }
+      }
+      if (ok) {
+        // Check against all marker circles (except own group)
+        for (const g2 of groups) {
+          if (g2.key === g.key) continue;
+          if (labelHitsMarker(cand.lx, cand.ly, cand.w, g2)) { ok = false; break; }
         }
       }
+      if (ok) { chosen = cand; break; }
     }
-  }
+    // Fallback: use "below" position with connector line flag
+    const label = chosen ?? { ...candidates[0], needsLine: true };
+    placed.push(label);
+    return label;
+  });
 
   function handleGroupTap(g) {
     if (g.discs.length === 1) {
@@ -188,12 +221,17 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
             ))}
           </defs>
 
-          {/* Labels */}
+          {/* Labels + optional connector lines */}
           {labels.map((lb, i) => (
-            <text key={"lb" + i} x={lb.lx} y={lb.ly + 3}
-              fill={lb.isSel ? C.text : C.muted} fontSize="6" textAnchor="middle"
-              style={{ fontWeight: lb.isSel ? 600 : 400, cursor: "pointer" }}
-              onClick={() => handleGroupTap(lb.g)}>{lb.text}</text>
+            <g key={"lb" + i} style={{ cursor: "pointer" }} onClick={() => handleGroupTap(lb.g)}>
+              {lb.needsLine && (
+                <line x1={lb.g.jx} y1={lb.g.jy} x2={lb.lx} y2={lb.ly}
+                  stroke={lb.color} strokeWidth="0.5" opacity="0.4" strokeDasharray="2 2"/>
+              )}
+              <text x={lb.lx} y={lb.ly + 3}
+                fill={lb.isSel ? C.text : C.muted} fontSize="6" textAnchor="middle"
+                style={{ fontWeight: lb.isSel ? 600 : 400 }}>{lb.text}</text>
+            </g>
           ))}
 
           {/* Markers */}

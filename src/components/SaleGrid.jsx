@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { C } from "../constants";
-import { saleNumber, salePriceStrShort } from "../utils";
+import { salePriceStrShort } from "../utils";
 
-const COLS = 3;
-const CELL_W = 160;
-const PHOTO_D = 106;
-const CELL_H = 16 + PHOTO_D + 10 + 16 + 15 + 12;
-const HEADER_H = 54;
-const FOOTER_H = 30;
+const COLS = 5;
+const W = 1280;
+const HEADER_H = 56;
+const FOOTER_H = 28;
+const GRID_H = 720 - HEADER_H - FOOTER_H; // 636px
 const TYPE_COLORS = { Putter: "#93c5fd", Midrange: "#86efac", Fairway: "#fdba74", Distance: "#fca5a5" };
 
 async function loadImg(src) {
@@ -37,6 +36,12 @@ export function SaleGrid({ orderedDiscs, username }) {
   const [generating, setGenerating] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
 
+  function gridNum(i) {
+    const row = Math.floor(i / COLS) + 1;
+    const col = (i % COLS) + 1;
+    return `${row}.${col}`;
+  }
+
   async function generate() {
     if (orderedDiscs.length === 0) return;
     setGenerating(true);
@@ -44,14 +49,19 @@ export function SaleGrid({ orderedDiscs, username }) {
     await document.fonts.ready;
 
     const rows = Math.ceil(orderedDiscs.length / COLS);
-    const W = COLS * CELL_W;
-    const H = HEADER_H + rows * CELL_H + FOOTER_H;
-    const canvas = document.createElement("canvas");
-    canvas.width = W * 2;
-    canvas.height = H * 2;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(2, 2);
+    const CELL_W = W / COLS;                            // 256px
+    const CELL_H = Math.floor(GRID_H / rows);           // scales to fill
+    const PHOTO_D = Math.min(Math.floor(CELL_H * 0.64), 160);
+    const H = 720;
 
+    const canvas = document.createElement("canvas");
+    const scale = 2;
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+
+    // Background
     ctx.fillStyle = "#0a0f0a";
     ctx.fillRect(0, 0, W, H);
 
@@ -59,22 +69,21 @@ export function SaleGrid({ orderedDiscs, username }) {
     ctx.fillStyle = "#111811";
     ctx.fillRect(0, 0, W, HEADER_H);
     ctx.fillStyle = "#4ade80";
-    ctx.font = "bold 24px Pacifico, 'DM Sans', sans-serif";
+    ctx.font = `bold 28px Pacifico, 'DM Sans', sans-serif`;
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    ctx.fillText("BagUp", 14, HEADER_H / 2 + 1);
+    ctx.fillText("BagUp", 20, HEADER_H / 2 + 1);
+    ctx.fillStyle = "#6b8f6b";
+    ctx.font = `500 13px 'DM Sans', sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText("Salgsliste", W / 2, HEADER_H / 2);
     if (username) {
-      ctx.fillStyle = "#6b8f6b";
-      ctx.font = "500 11px 'DM Sans', sans-serif";
       ctx.textAlign = "right";
-      ctx.fillText(`@${username.split("@")[0]}`, W - 14, HEADER_H / 2);
+      ctx.fillText(`@${username.split("@")[0]}`, W - 20, HEADER_H / 2);
     }
     ctx.strokeStyle = "#1e2e1e";
     ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, HEADER_H);
-    ctx.lineTo(W, HEADER_H);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, HEADER_H); ctx.lineTo(W, HEADER_H); ctx.stroke();
 
     const images = await Promise.all(orderedDiscs.map(d => d.pPhoto ? loadImg(d.pPhoto) : Promise.resolve(null)));
 
@@ -85,95 +94,81 @@ export function SaleGrid({ orderedDiscs, username }) {
       const cellX = col * CELL_W;
       const cellY = HEADER_H + row * CELL_H;
 
-      ctx.strokeStyle = "#1e2e1e80";
+      // Cell border
+      ctx.strokeStyle = "#1e2e1e60";
       ctx.lineWidth = 0.5;
       ctx.strokeRect(cellX + 0.25, cellY + 0.25, CELL_W - 0.5, CELL_H - 0.5);
 
       const cx = cellX + CELL_W / 2;
-      const photoTop = cellY + 16;
+      const photoTop = cellY + Math.floor((CELL_H - PHOTO_D - 36) / 2);
       const cy = photoTop + PHOTO_D / 2;
-      const r = PHOTO_D / 2;
+      const pr = PHOTO_D / 2;
       const img = images[i];
 
+      // Photo circle
       ctx.save();
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.arc(cx, cy, pr, 0, Math.PI * 2);
       ctx.clip();
-
       if (img) {
-        const scale = Math.max(PHOTO_D / img.naturalWidth, PHOTO_D / img.naturalHeight);
-        const dw = img.naturalWidth * scale;
-        const dh = img.naturalHeight * scale;
+        const s = Math.max(PHOTO_D / img.naturalWidth, PHOTO_D / img.naturalHeight);
+        const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
         ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
       } else {
         const tc = TYPE_COLORS[d.type] || "#6b8f6b";
-        ctx.fillStyle = tc + "22";
-        ctx.fill();
-        ctx.restore();
-        ctx.save();
+        ctx.fillStyle = tc + "22"; ctx.fill();
+        ctx.restore(); ctx.save();
         ctx.fillStyle = tc;
-        ctx.font = `bold ${Math.round(r * 0.8)}px 'DM Sans', sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.round(pr * 0.75)}px 'DM Sans', sans-serif`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(d.type ? d.type[0] : "?", cx, cy + 1);
       }
       ctx.restore();
 
+      // Photo ring
       ctx.strokeStyle = "#1e2e1e";
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, pr, 0, Math.PI * 2); ctx.stroke();
 
-      // Number pill
-      const numText = saleNumber(d);
-      if (numText) {
-        ctx.font = `bold 9px 'DM Sans', sans-serif`;
-        const tw = ctx.measureText(numText).width;
-        const ph = 16;
-        const pw = Math.max(tw + 10, 26);
-        const px = cx - r + 3;
-        const py = photoTop + 3;
-        ctx.fillStyle = "#0a0f0add";
-        roundRect(ctx, px, py, pw, ph, 8);
-        ctx.fill();
-        ctx.strokeStyle = "#4ade8090";
-        ctx.lineWidth = 0.75;
-        roundRect(ctx, px, py, pw, ph, 8);
-        ctx.stroke();
-        ctx.fillStyle = "#4ade80";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(numText, px + pw / 2, py + ph / 2 + 0.5);
-      }
+      // Auto-number badge
+      const numText = gridNum(i);
+      ctx.font = `bold 10px 'DM Sans', sans-serif`;
+      const tw = ctx.measureText(numText).width;
+      const ph = 17, pw = Math.max(tw + 12, 28);
+      const px = cx - pr + 2, py = photoTop + 2;
+      ctx.fillStyle = "#0a0f0add";
+      roundRect(ctx, px, py, pw, ph, 8); ctx.fill();
+      ctx.strokeStyle = "#4ade8080";
+      ctx.lineWidth = 0.75;
+      roundRect(ctx, px, py, pw, ph, 8); ctx.stroke();
+      ctx.fillStyle = "#4ade80";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(numText, px + pw / 2, py + ph / 2 + 0.5);
 
-      const textTop = photoTop + PHOTO_D + 10;
+      // Name
+      const textTop = photoTop + PHOTO_D + 8;
       ctx.fillStyle = "#e8f0e8";
-      ctx.font = `600 12px 'DM Sans', sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
+      ctx.font = `600 ${Math.min(13, Math.floor(CELL_W / 14))}px 'DM Sans', sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
       const nameStr = d.name && d.name.length > 14 ? d.name.slice(0, 13) + "…" : (d.name || "");
       ctx.fillText(nameStr, cx, textTop);
 
+      // Price
       ctx.fillStyle = "#4ade80";
-      ctx.font = `600 11px 'DM Sans', sans-serif`;
-      ctx.fillText(salePriceStrShort(d), cx, textTop + 16);
+      ctx.font = `600 ${Math.min(12, Math.floor(CELL_W / 15))}px 'DM Sans', sans-serif`;
+      ctx.fillText(salePriceStrShort(d), cx, textTop + 17);
     }
 
     // Footer
-    const footerY = HEADER_H + rows * CELL_H;
+    const footerY = H - FOOTER_H;
     ctx.fillStyle = "#111811";
     ctx.fillRect(0, footerY, W, FOOTER_H);
     ctx.strokeStyle = "#1e2e1e";
     ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, footerY);
-    ctx.lineTo(W, footerY);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, footerY); ctx.lineTo(W, footerY); ctx.stroke();
     ctx.fillStyle = "#6b8f6b";
-    ctx.font = `400 10px 'DM Sans', sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.font = `400 11px 'DM Sans', sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("BagUp — disc golf collection tracker", W / 2, footerY + FOOTER_H / 2);
 
     setImageUrl(canvas.toDataURL("image/png"));
@@ -186,14 +181,11 @@ export function SaleGrid({ orderedDiscs, username }) {
       const blob = await fetch(imageUrl).then(r => r.blob());
       const file = new File([blob], "bagup-salg.png", { type: "image/png" });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "BagUp salgsliste" });
-        return;
+        await navigator.share({ files: [file], title: "BagUp salgsliste" }); return;
       }
     } catch { /* fall through */ }
     const a = document.createElement("a");
-    a.href = imageUrl;
-    a.download = "bagup-salg.png";
-    a.click();
+    a.href = imageUrl; a.download = "bagup-salg.png"; a.click();
   }
 
   return (
