@@ -608,12 +608,26 @@ export default function App() {
         {/* FLIGHT */}
         {tab === "flight" && (
           <div>
-            <select value={flightSourceKey} onChange={e => setFlightSourceKey(e.target.value)}
-              style={{ width: "100%", padding: "11px 13px", marginBottom: 14, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 12, color: C.text, fontSize: 14, cursor: "pointer" }}>
-              <option value="owned">Mine discs (alle ejede)</option>
-              {bags.map(b => <option key={b.id} value={"bag:" + b.id}>{b.name}</option>)}
-            </select>
-            <div style={{ padding: 16, background: C.bg, border: `1px solid ${C.line}`, borderRadius: 18, marginBottom: 14 }}>
+            {/* Source tabs */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", paddingBottom: 2 }}>
+              {[
+                { key: "owned", label: "Mine discs" },
+                ...bags.map(b => ({ key: "bag:" + b.id, label: b.name })),
+              ].map(({ key, label }) => {
+                const active = flightSourceKey === key;
+                return (
+                  <button key={key} onClick={() => setFlightSourceKey(key)} style={{
+                    flexShrink: 0, padding: "7px 14px", borderRadius: 999, cursor: "pointer",
+                    fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
+                    border: `1px solid ${active ? C.brand : C.line}`,
+                    background: active ? `${C.brand}18` : "transparent",
+                    color: active ? C.brand : C.muted,
+                    boxShadow: active ? `0 0 8px ${C.brand}30` : "none",
+                  }}>{label}</button>
+                );
+              })}
+            </div>
+            <div style={{ padding: 12, background: C.bg, border: `1px solid ${C.line}`, borderRadius: 18, marginBottom: 14 }}>
               {flightDiscs.length === 0 ? (
                 <Empty text="Ingen discs at vise her endnu."/>
               ) : (
@@ -626,9 +640,6 @@ export default function App() {
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: TYPE_COLOR[t] }}/>{t}
                 </span>
               ))}
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 18 }}>
-              Disc-farve vises i matrixen hvis du har valgt én under ✎ i Mine discs.
             </div>
             {flightSelectedDisc && <DiscCard disc={flightSelectedDisc}/>}
           </div>
