@@ -14,6 +14,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR  = join(__dirname, "public");
 const OUT_FILE = join(OUT_DIR, "discs.json");
 
+// Manual overrides for discs the API miscategorizes
+const MANUAL_OVERRIDES = {
+  "f9e72357-2714-53a1-8202-0dfb92d7630c": { type: "Putter" }, // Discraft Zone (API says Midrange, it's an approach disc)
+};
+
 // Mapper discit-api's category-felt til de fire typer Min Disc kender
 function resolveType(category = "") {
   const c = category.toLowerCase();
@@ -40,7 +45,7 @@ async function main() {
       name:      d.name,
       brand:     d.brand,
       category:  d.category  ?? "",
-      type:      resolveType(d.category),
+      type:      MANUAL_OVERRIDES[d.id]?.type ?? resolveType(d.category),
       speed:     Number(d.speed),
       glide:     Number(d.glide),
       turn:      Number(d.turn),
