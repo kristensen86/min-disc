@@ -8,6 +8,7 @@ import { FlightEditor } from "./FlightEditor";
 export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit = null, override = null, onSave = null, onClear = null }) {
   const hasOverride = !!override;
   const [showBane, setShowBane] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
   const open = isEditing || showBane;
   const glowColor = disc.pColor || TYPE_COLOR[disc.type];
 
@@ -71,7 +72,11 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
               )}
               {actions.map((a, i) => (
                 <div key={i} style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
-                  <button onClick={a.onClick} aria-label={a.label} style={iconBtn(a.color || C.muted)}>
+                  <button
+                    onClick={a.needsConfirm ? () => setConfirmAction(a) : a.onClick}
+                    aria-label={a.label}
+                    style={iconBtn(a.color || C.muted)}
+                  >
                     <a.icon size={15} {...(a.iconProps || {})}/>
                   </button>
                   {a.badge != null && (
@@ -100,6 +105,13 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
                 }}/>
               )}
               <StabilityPill stability={disc.stability}/>
+              {disc.isCustom && (
+                <span style={{
+                  fontSize: 10, padding: "1px 6px", borderRadius: 999,
+                  background: `${C.brand}12`, border: `1px solid ${C.brand}35`,
+                  color: C.brand, fontWeight: 600, letterSpacing: "0.03em", flexShrink: 0,
+                }}>Egen</span>
+              )}
             </div>
 
             {/* Row 3: Weight + Plastic + Note chips */}
@@ -159,6 +171,42 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
       {isEditing && (
         <FlightEditor disc={disc} override={override}
           onSave={onSave} onClear={onClear} onClose={onToggleEdit}/>
+      )}
+
+      {confirmAction && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 300,
+          background: "rgba(5,10,5,0.88)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 20,
+        }} onClick={() => setConfirmAction(null)}>
+          <div style={{
+            background: C.raised, border: `1px solid ${C.line}`,
+            borderRadius: 20, padding: 24, maxWidth: 320, width: "100%",
+            boxShadow: `0 8px 40px rgba(0,0,0,0.6)`,
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 17, color: C.text, marginBottom: 8 }}>
+              Fjern disc?
+            </div>
+            <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.5, marginBottom: 22 }}>
+              Er du sikker på du vil fjerne{" "}
+              <strong style={{ color: C.text }}>{disc.name}</strong>{" "}
+              fra din samling?
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmAction(null)} style={{
+                flex: 1, padding: "12px 0", borderRadius: 13, cursor: "pointer",
+                border: `1px solid ${C.line}`, background: "transparent",
+                color: C.muted, fontSize: 14, fontWeight: 600,
+              }}>Annullér</button>
+              <button onClick={() => { confirmAction.onClick(); setConfirmAction(null); }} style={{
+                flex: 1, padding: "12px 0", borderRadius: 13, cursor: "pointer",
+                border: `1px solid ${C.distance}`, background: `${C.distance}15`,
+                color: C.distance, fontSize: 14, fontWeight: 600,
+              }}>Fjern</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

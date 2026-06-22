@@ -13,6 +13,7 @@ import { SharedBagView } from "./components/SharedBagView";
 import { LoginScreen } from "./components/LoginScreen";
 import { StatsPanel } from "./components/StatsPanel";
 import { SalePanel } from "./components/SalePanel";
+import { CreateDiscForm } from "./components/CreateDiscForm";
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -39,6 +40,9 @@ export default function App() {
   const [showOnlyWishlist, setShowOnlyWishlist] = useState(false);
   const [saleOrder, setSaleOrder] = useState([]);
   const [soldHistory, setSoldHistory] = useState([]);
+  const [customDiscs, setCustomDiscs] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [ownedQuery, setOwnedQuery] = useState("");
   const [sharedBag, setSharedBag] = useState(() => {
     try { const p = new URLSearchParams(window.location.search).get("bag"); return p ? decodeBag(p) : null; }
     catch { return null; }
@@ -64,8 +68,8 @@ export default function App() {
   useEffect(() => {
     fetch("/discs.json")
       .then(r => { if (!r.ok) throw new Error("mangler"); return r.json(); })
-      .then(data => { setAllDiscs(data); setDiscsLoading(false); })
-      .catch(() => { setAllDiscs(FALLBACK); setFallback(true); setDiscsLoading(false); });
+      .then(data => { setAllDiscs(prev => [...data, ...prev.filter(d => d.isCustom)]); setDiscsLoading(false); })
+      .catch(() => { setAllDiscs(prev => [...FALLBACK, ...prev.filter(d => d.isCustom)]); setFallback(true); setDiscsLoading(false); });
   }, []);
 
   useEffect(() => {
@@ -144,6 +148,15 @@ export default function App() {
         try { if (res?.value) historyData = JSON.parse(res.value); } catch (_) {}
       } catch (_) {}
       setSoldHistory(historyData);
+      let customData = [];
+      try {
+        let res = await store.get("customDiscs");
+        try { if (res?.value) customData = JSON.parse(res.value); } catch (_) {}
+      } catch (_) {}
+      setCustomDiscs(customData);
+      if (customData.length > 0) {
+        setAllDiscs(prev => [...prev.filter(d => !d.isCustom), ...customData]);
+      }
       setDataLoaded(true);
     })();
   }, [authUser, authLoading]);
@@ -154,6 +167,8 @@ export default function App() {
   useEffect(() => { if (dataLoaded) store.set("wishlist", JSON.stringify(wishlist)).catch(() => {}); }, [wishlist, dataLoaded]);
   useEffect(() => { if (dataLoaded) store.set("saleOrder", JSON.stringify(saleOrder)).catch(() => {}); }, [saleOrder, dataLoaded]);
   useEffect(() => { if (dataLoaded) store.set("saleHistory", JSON.stringify(soldHistory)).catch(() => {}); }, [soldHistory, dataLoaded]);
+  useEffect(() => { if (dataLoaded) store.set("customDiscs", JSON.stringify(customDiscs)).catch(() => {}); }, [customDiscs, dataLoaded]);
+  useEffect(() => { if (tab !== "owned") setOwnedQuery(""); }, [tab]);
   useEffect(() => { setFlightSelected(null); }, [flightSourceKey]);
   useEffect(() => {
     if (flightSourceKey !== "owned" && !bags.some(b => "bag:" + b.id === flightSourceKey)) setFlightSourceKey("owned");
@@ -162,6 +177,13 @@ export default function App() {
   const ownedDiscs = useMemo(() => owned.map(({ uid, discId }) => { const disc = allDiscs.find(d => d.id === discId); return disc ? { ...disc, uid } : null; }).filter(Boolean), [owned, allDiscs]);
   const resolvedOwned = useMemo(() => ownedDiscs.map(d => resolveDisc(d, overrides)), [ownedDiscs, overrides]);
   const forSaleDiscs = useMemo(() => resolvedOwned.filter(d => d.forSale), [resolvedOwned]);
+  const filteredResolved = useMemo(() => {
+    if (!ownedQuery.trim()) return resolvedOwned;
+    const q = ownedQuery.trim().toLowerCase();
+    return resolvedOwned.filter(d =>
+      (d.name + " " + d.brand + " " + (d.pPlastic || "") + " " + (d.pNote || "")).toLowerCase().includes(q)
+    );
+  }, [resolvedOwned, ownedQuery]);
   const brands = useMemo(() => ["Alle", ...[...new Set(allDiscs.map(d => d.brand))].sort()], [allDiscs]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -244,6 +266,23 @@ export default function App() {
     }
     setOverrides(o => ({ ...o, [uid]: { ...(o[uid] || {}), forSale: false } }));
     setSaleOrder(s => s.filter(id => id !== uid));
+  }
+
+  function createCustomDisc(disc) {
+    setCustomDiscs(c => [...c, disc]);
+    setAllDiscs(d => [...d, disc]);
+    setOwned(o => [...o, { uid: genId(), discId: disc.id }]);
+    setShowCreateForm(false);
+  }
+  function deleteCustomDisc(id) {
+    setCustomDiscs(c => c.filter(d => d.id !== id));
+    setAllDiscs(d => d.filter(d => d.id !== id));
+    setBags(bs => bs.map(b => ({ ...b, discIds: b.discIds.filter(did => did !== id) })));
+    setOwned(prev => {
+      const toRemove = new Set(prev.filter(x => x.discId === id).map(x => x.uid));
+      if (toRemove.size > 0) setSaleOrder(s => s.filter(uid => !toRemove.has(uid)));
+      return prev.filter(x => x.discId !== id);
+    });
   }
 
   function shareBag(bag) {
@@ -396,16 +435,30 @@ export default function App() {
               style={{ width: "100%", padding: "11px 13px", marginBottom: 12, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 12, color: C.text, fontSize: 14, cursor: "pointer" }}>
               {brands.map(b => <option key={b} value={b} style={{ background: C.surface }}>{b}</option>)}
             </select>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, letterSpacing: "0.02em" }}>
-              {filtered.length.toLocaleString("da")} discs{filtered.length > visibleCount && ` — viser ${visibleCount}`}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 12, color: C.muted, letterSpacing: "0.02em" }}>
+                {filtered.length.toLocaleString("da")} discs{filtered.length > visibleCount && ` — viser ${visibleCount}`}
+              </span>
+              <button onClick={() => setShowCreateForm(v => !v)} style={{
+                fontSize: 12, fontWeight: 600, color: showCreateForm ? C.brand : C.muted,
+                background: showCreateForm ? `${C.brand}12` : "transparent",
+                border: `1px solid ${showCreateForm ? C.brand : C.line}`,
+                padding: "5px 12px", borderRadius: 999, cursor: "pointer", letterSpacing: "0.02em",
+              }}>+ Opret disc</button>
             </div>
+
+            {showCreateForm && (
+              <CreateDiscForm onSave={createCustomDisc} onCancel={() => setShowCreateForm(false)}/>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {filtered.slice(0, visibleCount).map(d => {
                 const count = owned.filter(x => x.discId === d.id).length;
                 return (
                   <DiscCard key={d.id} disc={d} actions={[
                     { icon: Plus, badge: count > 0 ? count : null, label: "Tilføj til mine discs", onClick: () => addToOwned(d.id), color: count > 0 ? C.midrange : C.brand },
-                    { icon: Heart, iconProps: wishlist.includes(d.id) ? { fill: "currentColor" } : {}, label: wishlist.includes(d.id) ? "Fjern fra ønskeliste" : "Tilføj til ønskeliste", onClick: () => wishlist.includes(d.id) ? removeFromWishlist(d.id) : addToWishlist(d.id), color: wishlist.includes(d.id) ? C.distance : C.muted }
+                    { icon: Heart, iconProps: wishlist.includes(d.id) ? { fill: "currentColor" } : {}, label: wishlist.includes(d.id) ? "Fjern fra ønskeliste" : "Tilføj til ønskeliste", onClick: () => wishlist.includes(d.id) ? removeFromWishlist(d.id) : addToWishlist(d.id), color: wishlist.includes(d.id) ? C.distance : C.muted },
+                    ...(d.isCustom ? [{ icon: Trash2, label: "Slet disc", onClick: () => deleteCustomDisc(d.id), color: C.distance, needsConfirm: true }] : []),
                   ]}/>
                 );
               })}
@@ -421,18 +474,28 @@ export default function App() {
 
         {/* MINE DISCS */}
         {tab === "owned" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Search bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 13px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13 }}>
+              <Search size={17} color={C.muted}/>
+              <input value={ownedQuery} onChange={e => setOwnedQuery(e.target.value)}
+                placeholder="Søg i mine discs…"
+                style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
+              {ownedQuery && <button onClick={() => setOwnedQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
+            </div>
+
             {ownedDiscs.length === 0 ? (
-              <Empty text="Du ejer ingen discs endnu. Gå til Database og tilføj dem du har."/>
+              <Empty text="Du ejer ingen discs endnu. Gå til Søg og tilføj dem du har."/>
+            ) : filteredResolved.length === 0 ? (
+              <Empty text="Ingen discs matcher din søgning."/>
             ) : (
-              TYPES.filter(t => ownedDiscs.some(d => d.type === t)).map(t => (
-                <section key={t}>
-                  <h2 style={secHdr(t)}>{t}</h2>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {ownedDiscs.filter(d => d.type === t).map(d => {
-                      const rd = resolveDisc(d, overrides);
-                      return (
-                        <DiscCard key={d.uid} disc={rd}
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {TYPES.filter(t => filteredResolved.some(d => d.type === t)).map(t => (
+                  <section key={t}>
+                    <h2 style={secHdr(t)}>{t}</h2>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {filteredResolved.filter(d => d.type === t).map(d => (
+                        <DiscCard key={d.uid} disc={d}
                           isEditing={editingDiscUid === d.uid}
                           onToggleEdit={() => setEditingDiscUid(editingDiscUid === d.uid ? null : d.uid)}
                           override={overrides[d.uid] || null}
@@ -441,17 +504,17 @@ export default function App() {
                           actions={[
                             {
                               icon: Tag,
-                              label: rd.forSale ? "Fjern fra salg" : "Sæt til salg",
+                              label: d.forSale ? "Fjern fra salg" : "Sæt til salg",
                               onClick: () => toggleForSale(d.uid),
-                              color: rd.forSale ? C.brand : C.muted,
+                              color: d.forSale ? C.brand : C.muted,
                             },
-                            { icon: Trash2, label: "Fjern fra mine discs", onClick: () => removeFromOwned(d.uid), color: C.distance },
+                            { icon: Trash2, label: "Fjern fra mine discs", onClick: () => removeFromOwned(d.uid), color: C.distance, needsConfirm: true },
                           ]}/>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
             )}
           </div>
         )}
