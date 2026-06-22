@@ -627,20 +627,13 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{ padding: 12, background: C.bg, border: `1px solid ${C.line}`, borderRadius: 18, marginBottom: 14 }}>
-              {flightDiscs.length === 0 ? (
-                <Empty text="Ingen discs at vise her endnu."/>
-              ) : (
+            {flightDiscs.length === 0 ? (
+              <Empty text="Ingen discs at vise her endnu."/>
+            ) : (
+              <div style={{ margin: "0 -16px", marginBottom: 14 }}>
                 <FlightMatrix discs={flightDiscs} selectedId={flightSelected} onSelect={setFlightSelected}/>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 8, fontSize: 12, color: C.muted }}>
-              {TYPES.map(t => (
-                <span key={t} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: TYPE_COLOR[t] }}/>{t}
-                </span>
-              ))}
-            </div>
+              </div>
+            )}
             {flightSelectedDisc && <DiscCard disc={flightSelectedDisc}/>}
           </div>
         )}
