@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, Plus, Trash2, X, Pencil } from "lucide-react";
-import { C, TYPES } from "../constants";
-import { resolveDisc } from "../utils";
+import { C, TYPES, TYPE_COLOR } from "../constants";
+import { resolveDisc, conditionText } from "../utils";
 import { btn, iconBtn, secHdr, Empty } from "./ui";
 import { DiscCard } from "./DiscCard";
 
@@ -21,7 +21,9 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
 
   const q = query.trim().toLowerCase();
   const searchResults = q
-    ? ownedDiscs.filter(d => (d.name + " " + d.brand).toLowerCase().includes(q)).slice(0, 8)
+    ? ownedDiscs.filter(d => (d.name + " " + d.brand).toLowerCase().includes(q))
+        .map(d => resolveDisc(d, overrides || {}))
+        .slice(0, 8)
     : [];
 
   return (
@@ -45,15 +47,58 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
       </div>
       {searchResults.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-          {searchResults.map(d => (
-            <button key={d.id} onClick={() => { onAddDisc(d.id); setQuery(""); }} style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "10px 12px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-              background: C.raised, border: `1px solid ${C.line}`, color: C.text, fontSize: 13 }}>
-              <span>{d.name} <span style={{ color: C.muted }}>· {d.brand}</span></span>
-              <Plus size={15} color={C.brand}/>
-            </button>
-          ))}
+          {searchResults.map(d => {
+            const glowColor = d.pColor || TYPE_COLOR[d.type];
+            const hasExtras = d.pColor || d.pWeight || d.pPlastic || d.condition;
+            return (
+              <button key={d.uid ?? d.id} onClick={() => { onAddDisc(d.id); setQuery(""); }} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 12px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+                background: C.raised, border: `1px solid ${C.line}`, color: C.text }}>
+                {/* Photo / letter badge */}
+                <div style={{
+                  width: 32, height: 32, flexShrink: 0, borderRadius: "50%",
+                  border: `1.5px solid ${glowColor}50`,
+                  background: d.pPhoto ? C.raised : `${glowColor}18`,
+                  overflow: "hidden",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {d.pPhoto
+                    ? <img src={d.pPhoto} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }}/>
+                    : <span style={{ fontSize: 13, fontWeight: 800, color: glowColor }}>{d.type[0]}</span>
+                  }
+                </div>
+                {/* Text */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: C.text, fontWeight: 500,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {d.name} <span style={{ color: C.muted, fontWeight: 400 }}>· {d.brand}</span>
+                  </div>
+                  {hasExtras && (
+                    <div style={{ display: "flex", gap: 5, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
+                      {d.pColor && (
+                        <span style={{
+                          width: 8, height: 8, borderRadius: "50%",
+                          background: d.pColor, boxShadow: `0 0 4px ${d.pColor}80`,
+                          flexShrink: 0, display: "inline-block",
+                        }}/>
+                      )}
+                      {d.pWeight && (
+                        <span style={{ fontSize: 10, color: C.muted }}>{d.pWeight}g</span>
+                      )}
+                      {d.pPlastic && (
+                        <span style={{ fontSize: 10, color: C.muted }}>{d.pPlastic}</span>
+                      )}
+                      {d.condition && (
+                        <span style={{ fontSize: 10, color: C.muted }}>{conditionText(d.condition)}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Plus size={15} color={C.brand} style={{ flexShrink: 0 }}/>
+              </button>
+            );
+          })}
         </div>
       )}
       {entryDiscs.length === 0 ? (
