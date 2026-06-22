@@ -17,7 +17,7 @@ const OUT_FILE = join(OUT_DIR, "discs.json");
 // Mapper discit-api's category-felt til de fire typer Min Disc kender
 function resolveType(category = "") {
   const c = category.toLowerCase();
-  if (c.includes("putter"))   return "Putter";
+  if (c.includes("putter") || c.includes("approach")) return "Putter";
   if (c.includes("midrange")) return "Midrange";
   if (c.includes("control") || c.includes("fairway") || c.includes("hybrid")) return "Fairway";
   return "Distance";
