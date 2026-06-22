@@ -9,21 +9,20 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
   const [query, setQuery] = useState("");
   if (!bag) return <Empty text="Bag ikke fundet."/>;
 
-  const bagEntries = bag.bagEntries || (bag.discIds || []).map(id => ({ entryId: id, discId: id }));
+  const bagEntries = bag.bagEntries || [];
 
   const entryDiscs = bagEntries.map(entry => {
-    const ownedInst = ownedDiscs.find(od => od.id === entry.discId);
-    const baseDisc = ownedInst
-      ? resolveDisc(ownedInst, overrides || {})
-      : allDiscs.find(d => d.id === entry.discId);
-    return baseDisc ? { disc: baseDisc, entryId: entry.entryId } : null;
+    const ownedInst = ownedDiscs.find(od => od.uid === entry.instanceId);
+    if (!ownedInst) return null;
+    return { disc: resolveDisc(ownedInst, overrides || {}), entryId: entry.entryId };
   }).filter(Boolean);
 
   const q = query.trim().toLowerCase();
+  const resolvedOwned = ownedDiscs.map(d => resolveDisc(d, overrides || {}));
   const searchResults = q
-    ? ownedDiscs.filter(d => (d.name + " " + d.brand).toLowerCase().includes(q))
-        .map(d => resolveDisc(d, overrides || {}))
-        .slice(0, 8)
+    ? resolvedOwned.filter(d =>
+        (d.name + " " + d.brand + " " + (d.pPlastic || "") + " " + (d.pNote || "")).toLowerCase().includes(q)
+      ).slice(0, 8)
     : [];
 
   return (
@@ -51,7 +50,7 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
             const glowColor = d.pColor || TYPE_COLOR[d.type];
             const hasExtras = d.pColor || d.pWeight || d.pPlastic || d.condition;
             return (
-              <button key={d.uid ?? d.id} onClick={() => { onAddDisc(d.id); setQuery(""); }} style={{
+              <button key={d.uid} onClick={() => { onAddDisc(d.uid); setQuery(""); }} style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "8px 12px", borderRadius: 10, cursor: "pointer", textAlign: "left",
                 background: C.raised, border: `1px solid ${C.line}`, color: C.text }}>
@@ -108,16 +107,13 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
           <section key={t} style={{ marginBottom: 18 }}>
             <h3 style={secHdr(t)}>{t}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {entryDiscs.filter(e => e.disc.type === t).map(e => {
-                const ownedInst = ownedDiscs.find(od => od.id === e.disc.id);
-                return (
-                  <DiscCard key={e.entryId} disc={e.disc}
-                    actions={[
-                      ...(onEditDisc && ownedInst ? [{ icon: Pencil, label: "Rediger disc", onClick: () => onEditDisc(e.disc.id), color: C.muted }] : []),
-                      { icon: Trash2, label: "Fjern fra bag", onClick: () => onRemoveDisc(e.entryId), color: C.distance },
-                    ]}/>
-                );
-              })}
+              {entryDiscs.filter(e => e.disc.type === t).map(e => (
+                <DiscCard key={e.entryId} disc={e.disc}
+                  actions={[
+                    ...(onEditDisc ? [{ icon: Pencil, label: "Rediger disc", onClick: () => onEditDisc(e.disc.uid), color: C.muted }] : []),
+                    { icon: Trash2, label: "Fjern fra bag", onClick: () => onRemoveDisc(e.entryId), color: C.distance },
+                  ]}/>
+              ))}
             </div>
           </section>
         ))

@@ -124,18 +124,28 @@ export default function App() {
         if (res?.value) bagsList = JSON.parse(res.value);
       } catch (_) {}
       if (bagsList === null) {
-        const uniqueDiscIds = [...new Set(ownedIds.map(x => x.discId))];
-        bagsList = uniqueDiscIds.length > 0
-          ? [{ id: genId(), name: "Min bag", bagEntries: uniqueDiscIds.map(discId => ({ entryId: genId(), discId })) }]
+        bagsList = ownedIds.length > 0
+          ? [{ id: genId(), name: "Min bag", bagEntries: ownedIds.map(({ uid }) => ({ entryId: genId(), instanceId: uid })) }]
           : [];
         store.set("bags", JSON.stringify(bagsList)).catch(() => {});
       } else {
-        // Migrate old discIds format to bagEntries
+        // Migrate: discIds[] → bagEntries[], and discId entries → instanceId entries
         bagsList = bagsList.map(b => {
-          if (!b.bagEntries && b.discIds) {
-            return { id: b.id, name: b.name, bagEntries: b.discIds.map(discId => ({ entryId: genId(), discId })) };
-          }
-          return b;
+          const rawEntries = b.bagEntries || (b.discIds || []).map(id => ({ entryId: genId(), discId: id }));
+          const needsMigration = rawEntries.some(e => !e.instanceId && e.discId);
+          if (!needsMigration) return { ...b, bagEntries: rawEntries };
+          const used = {};
+          return {
+            id: b.id, name: b.name,
+            bagEntries: rawEntries.map(e => {
+              if (e.instanceId) return e;
+              const instances = ownedIds.filter(x => x.discId === e.discId);
+              const idx = used[e.discId] || 0;
+              used[e.discId] = idx + 1;
+              const inst = instances[idx] || instances[0];
+              return { entryId: e.entryId || genId(), instanceId: inst?.uid || genId() };
+            }),
+          };
         });
       }
       setBags(bagsList);
@@ -211,8 +221,8 @@ export default function App() {
     const bag = bags.find(b => "bag:" + b.id === flightSourceKey);
     if (!bag) return [];
     return (bag.bagEntries || []).map(e => {
-      const ownedInst = ownedDiscs.find(od => od.id === e.discId);
-      return ownedInst ? resolveDisc(ownedInst, overrides) : allDiscs.find(d => d.id === e.discId) || null;
+      const ownedInst = ownedDiscs.find(od => od.uid === e.instanceId);
+      return ownedInst ? resolveDisc(ownedInst, overrides) : null;
     }).filter(Boolean);
   }, [flightSourceKey, resolvedOwned, bags, allDiscs, overrides]);
   const flightSelectedDisc = flightDiscs.find(d => (d.uid ?? d.id) === flightSelected) || null;
@@ -290,7 +300,8 @@ export default function App() {
   function deleteCustomDisc(id) {
     setCustomDiscs(c => c.filter(d => d.id !== id));
     setAllDiscs(d => d.filter(d => d.id !== id));
-    setBags(bs => bs.map(b => ({ ...b, bagEntries: (b.bagEntries || []).filter(e => e.discId !== id) })));
+    const removedUids = new Set(owned.filter(x => x.discId === id).map(x => x.uid));
+    setBags(bs => bs.map(b => ({ ...b, bagEntries: (b.bagEntries || []).filter(e => !removedUids.has(e.instanceId)) })));
     setOwned(prev => {
       const toRemove = new Set(prev.filter(x => x.discId === id).map(x => x.uid));
       if (toRemove.size > 0) setSaleOrder(s => s.filter(uid => !toRemove.has(uid)));
@@ -299,7 +310,14 @@ export default function App() {
   }
 
   function shareBag(bag) {
-    const encoded = encodeBag(bag, allDiscs);
+    const bagForShare = {
+      ...bag,
+      bagEntries: (bag.bagEntries || []).map(e => {
+        const inst = ownedDiscs.find(od => od.uid === e.instanceId);
+        return inst ? { entryId: e.entryId, discId: inst.id } : null;
+      }).filter(Boolean),
+    };
+    const encoded = encodeBag(bagForShare, allDiscs);
     const url = `${window.location.origin}${window.location.pathname}?bag=${encoded}`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => alert("Link kopieret!")).catch(() => prompt("Kopiér dette link:", url));
@@ -322,14 +340,14 @@ export default function App() {
     if (!window.confirm(`Slet bag "${bag.name}"? Kan ikke fortrydes.`)) return;
     setBags(bs => bs.filter(b => b.id !== id)); if (openBagId === id) setOpenBagId(null);
   }
-  function addDiscToBag(bagId, discId) {
-    setBags(bs => bs.map(b => b.id === bagId ? { ...b, bagEntries: [...(b.bagEntries || []), { entryId: genId(), discId }] } : b));
+  function addInstanceToBag(bagId, instanceId) {
+    setBags(bs => bs.map(b => b.id === bagId ? { ...b, bagEntries: [...(b.bagEntries || []), { entryId: genId(), instanceId }] } : b));
   }
   function removeEntryFromBag(bagId, entryId) {
     setBags(bs => bs.map(b => b.id === bagId ? { ...b, bagEntries: (b.bagEntries || []).filter(e => e.entryId !== entryId) } : b));
   }
   function saveGeneratedBag(name, discs) {
-    const nb = { id: genId(), name: name || "Tilfældig bag", bagEntries: discs.map(d => ({ entryId: genId(), discId: d.id })) };
+    const nb = { id: genId(), name: name || "Tilfældig bag", bagEntries: discs.map(d => ({ entryId: genId(), instanceId: d.uid })) };
     setBags(b => [...b, nb]); setOpenBagId(nb.id); setShowGenerator(false);
   }
   function addAllFromShared() {
@@ -542,9 +560,9 @@ export default function App() {
               onRename={() => renameBag(openBagId)}
               onDelete={() => deleteBag(openBagId)}
               overrides={overrides}
-              onAddDisc={discId => addDiscToBag(openBagId, discId)}
+              onAddDisc={instanceId => addInstanceToBag(openBagId, instanceId)}
               onRemoveDisc={entryId => removeEntryFromBag(openBagId, entryId)}
-              onEditDisc={openEditForDiscByDiscId}/>
+              onEditDisc={openEditForDisc}/>
           ) : (
             <div>
               {!showGenerator && (
