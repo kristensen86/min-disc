@@ -1,5 +1,6 @@
 import { C, TYPE_COLOR, TYPES } from "../constants";
 import { Empty } from "./ui";
+import { CollectorStatus } from "./CollectorStatus";
 
 function StatCard({title,children}){
   return(
@@ -12,7 +13,7 @@ function StatCard({title,children}){
   );
 }
 
-export function StatsPanel({resolvedOwned}){
+export function StatsPanel({resolvedOwned, allDiscs}){
   const total=resolvedOwned.length;
 
   const byType=TYPES.map(t=>({type:t,count:resolvedOwned.filter(d=>d.type===t).length}));
@@ -35,12 +36,6 @@ export function StatsPanel({resolvedOwned}){
   const avgWeight=withWeight.length>0
     ?(withWeight.reduce((a,d)=>a+Number(d.pWeight),0)/withWeight.length).toFixed(1)
     :null;
-
-  const stabScore=d=>d.fade-d.turn;
-  const sortedByStab=[...resolvedOwned].sort((a,b)=>stabScore(b)-stabScore(a));
-  const mostOver=sortedByStab[0]||null;
-  const mostUnder=sortedByStab[sortedByStab.length-1]||null;
-  const hasDistinctExtremes=mostOver&&mostUnder&&(mostOver.uid??mostOver.id)!==(mostUnder.uid??mostUnder.id);
 
   if(total===0){
     return <Empty text="Tilføj discs til din samling for at se statistik."/>;
@@ -121,44 +116,20 @@ export function StatsPanel({resolvedOwned}){
         </StatCard>
       )}
 
-      {/* Weight + extremes grid */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {avgWeight&&(
-          <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:16,
-            padding:"14px 16px"}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",
-              color:C.muted,marginBottom:10}}>Ø Vægt</div>
-            <div style={{fontSize:26,fontWeight:700,color:C.brand}}>{avgWeight}g</div>
-            <div style={{fontSize:11,color:C.muted,marginTop:4,letterSpacing:"0.02em"}}>
-              {withWeight.length} registreret
-            </div>
+      {/* Average weight */}
+      {avgWeight&&(
+        <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:16,
+          padding:"14px 16px"}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",
+            color:C.muted,marginBottom:10}}>Ø Vægt</div>
+          <div style={{fontSize:26,fontWeight:700,color:C.brand}}>{avgWeight}g</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:4,letterSpacing:"0.02em"}}>
+            {withWeight.length} registreret
           </div>
-        )}
-        {mostOver&&(
-          <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:16,
-            padding:"14px 16px"}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",
-              color:C.muted,marginBottom:10}}>Mest overstabil</div>
-            <div style={{fontWeight:600,color:C.text,fontSize:14,marginBottom:3}}>{mostOver.name}</div>
-            <div style={{fontSize:11,color:C.muted}}>{mostOver.brand}</div>
-            <div style={{fontSize:11,color:C.putter,marginTop:4,letterSpacing:"0.02em"}}>
-              Stab {stabScore(mostOver).toFixed(1)}
-            </div>
-          </div>
-        )}
-        {hasDistinctExtremes&&(
-          <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:16,
-            padding:"14px 16px",gridColumn:avgWeight?"auto":"1 / -1"}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",
-              color:C.muted,marginBottom:10}}>Mest understabil</div>
-            <div style={{fontWeight:600,color:C.text,fontSize:14,marginBottom:3}}>{mostUnder.name}</div>
-            <div style={{fontSize:11,color:C.muted}}>{mostUnder.brand}</div>
-            <div style={{fontSize:11,color:C.fairway,marginTop:4,letterSpacing:"0.02em"}}>
-              Stab {stabScore(mostUnder).toFixed(1)}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {allDiscs&&<CollectorStatus resolvedOwned={resolvedOwned} allDiscs={allDiscs}/>}
 
     </div>
   );

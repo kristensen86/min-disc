@@ -12,6 +12,7 @@ import { BagDetail } from "./components/BagDetail";
 import { SharedBagView } from "./components/SharedBagView";
 import { LoginScreen } from "./components/LoginScreen";
 import { StatsPanel } from "./components/StatsPanel";
+import { BagComparison } from "./components/BagComparison";
 import { SalePanel } from "./components/SalePanel";
 import { CreateDiscForm } from "./components/CreateDiscForm";
 
@@ -32,6 +33,7 @@ export default function App() {
   const [openBagId, setOpenBagId] = useState(null);
   const [showNewChoice, setShowNewChoice] = useState(false);
   const [showGenerator, setShowGenerator] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
   const [flightSourceKey, setFlightSourceKey] = useState("owned");
   const [flightSelected, setFlightSelected] = useState(null);
   const [overrides, setOverrides] = useState({});
@@ -565,41 +567,64 @@ export default function App() {
               onEditDisc={openEditForDisc}/>
           ) : (
             <div>
+              {/* Mine bags / Sammenlign toggle */}
               {!showGenerator && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  {["Mine bags", "Sammenlign"].map((label, i) => {
+                    const active = i === 0 ? !showCompare : showCompare;
+                    return (
+                      <button key={label} onClick={() => setShowCompare(i === 1)} style={{
+                        flex: 1, padding: "8px 0", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                        border: `1px solid ${active ? C.brand : C.line}`,
+                        background: active ? `${C.brand}18` : "transparent",
+                        color: active ? C.brand : C.muted,
+                      }}>{label}</button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {showCompare ? (
+                <BagComparison bags={bags} ownedDiscs={ownedDiscs} allDiscs={allDiscs} overrides={overrides}/>
+              ) : (
                 <>
-                  <button onClick={() => setShowNewChoice(v => !v)} style={{ ...btn("primary"), marginBottom: showNewChoice ? 12 : 16 }}>
-                    + Ny bag
-                  </button>
-                  {showNewChoice && (
-                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                      <button onClick={createEmptyBag} style={btn()}>Tom bag</button>
-                      <button onClick={() => { setShowGenerator(true); setShowNewChoice(false); }} style={btn()}>🎲 Tilfældig bag</button>
-                    </div>
+                  {!showGenerator && (
+                    <>
+                      <button onClick={() => setShowNewChoice(v => !v)} style={{ ...btn("primary"), marginBottom: showNewChoice ? 12 : 16 }}>
+                        + Ny bag
+                      </button>
+                      {showNewChoice && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                          <button onClick={createEmptyBag} style={btn()}>Tom bag</button>
+                          <button onClick={() => { setShowGenerator(true); setShowNewChoice(false); }} style={btn()}>🎲 Tilfældig bag</button>
+                        </div>
+                      )}
+                      {bags.length === 0 ? (
+                        <Empty text="Du har ingen bags endnu. Opret en ovenfor."/>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                          {bags.map(b => (
+                            <button key={b.id} onClick={() => setOpenBagId(b.id)} style={{
+                              display: "flex", justifyContent: "space-between", alignItems: "center",
+                              padding: 16, borderRadius: 16, cursor: "pointer", textAlign: "left",
+                              background: C.surface, border: `1px solid ${C.line}`, color: C.text, boxShadow: `0 0 12px ${C.brand}06`,
+                            }}>
+                              <span style={{ fontWeight: 600 }}>{b.name}</span>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <span style={{ fontSize: 13, color: C.muted }}>{(b.bagEntries || []).length} discs</span>
+                                <button onClick={e => { e.stopPropagation(); shareBag(b); }}
+                                  style={{ fontSize: 12, color: C.brand, background: "transparent", border: "none", cursor: "pointer", padding: "3px 8px", borderRadius: 7 }}>Del</button>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
-                  {bags.length === 0 ? (
-                    <Empty text="Du har ingen bags endnu. Opret en ovenfor."/>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {bags.map(b => (
-                        <button key={b.id} onClick={() => setOpenBagId(b.id)} style={{
-                          display: "flex", justifyContent: "space-between", alignItems: "center",
-                          padding: 16, borderRadius: 16, cursor: "pointer", textAlign: "left",
-                          background: C.surface, border: `1px solid ${C.line}`, color: C.text, boxShadow: `0 0 12px ${C.brand}06`,
-                        }}>
-                          <span style={{ fontWeight: 600 }}>{b.name}</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <span style={{ fontSize: 13, color: C.muted }}>{(b.bagEntries || []).length} discs</span>
-                            <button onClick={e => { e.stopPropagation(); shareBag(b); }}
-                              style={{ fontSize: 12, color: C.brand, background: "transparent", border: "none", cursor: "pointer", padding: "3px 8px", borderRadius: 7 }}>Del</button>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                  {showGenerator && (
+                    <GeneratorPanel ownedDiscs={resolvedOwned} onSave={saveGeneratedBag} onCancel={() => setShowGenerator(false)}/>
                   )}
                 </>
-              )}
-              {showGenerator && (
-                <GeneratorPanel ownedDiscs={resolvedOwned} onSave={saveGeneratedBag} onCancel={() => setShowGenerator(false)}/>
               )}
             </div>
           )
@@ -627,7 +652,7 @@ export default function App() {
 
         {/* STATISTIK */}
         {tab === "stats" && (
-          <StatsPanel resolvedOwned={resolvedOwned}/>
+          <StatsPanel resolvedOwned={resolvedOwned} allDiscs={allDiscs}/>
         )}
 
         {/* SALG */}
