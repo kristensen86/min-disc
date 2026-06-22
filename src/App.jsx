@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark } from "lucide-react";
+import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark, Share2 } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
@@ -311,6 +311,23 @@ export default function App() {
     });
   }
 
+  const [shareCopied, setShareCopied] = useState(false);
+  function shareApp() {
+    const shareData = {
+      title: "BagUp — Disc Golf Bag Manager",
+      text: "Jeg bruger BagUp til at holde styr på mine discs og bags. Prøv det gratis!",
+      url: "https://bagup.vercel.app",
+    };
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(shareData.url).then(() => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      }).catch(() => {});
+    }
+  }
+
   function shareBag(bag) {
     const bagForShare = {
       ...bag,
@@ -419,6 +436,16 @@ export default function App() {
             <span style={{ marginLeft: "auto", fontSize: 12, color: C.muted, letterSpacing: "0.03em", background: C.raised, border: `1px solid ${C.line}`, padding: "5px 12px", borderRadius: 999 }}>
               {owned.length} ejet
             </span>
+            <button onClick={shareApp} aria-label="Del BagUp" title={shareCopied ? "Link kopieret!" : "Del BagUp"}
+              style={{ ...iconBtn(shareCopied ? C.brand : C.muted), flexShrink: 0, position: "relative" }}>
+              <Share2 size={15}/>
+              {shareCopied && (
+                <span style={{ position: "absolute", bottom: -22, left: "50%", transform: "translateX(-50%)",
+                  fontSize: 10, color: C.brand, whiteSpace: "nowrap", pointerEvents: "none" }}>
+                  Kopieret!
+                </span>
+              )}
+            </button>
             {authUser && supabase && (
               <button onClick={() => supabase.auth.signOut()} aria-label="Log ud" title={authUser.email} style={{ ...iconBtn(C.muted), flexShrink: 0 }}>
                 <LogOut size={15}/>
