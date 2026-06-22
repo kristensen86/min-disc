@@ -48,12 +48,25 @@ export function FlightMatrix({discs,selectedId,onSelect}){
         return placed.map(({jx,jy,d})=>{
           const isSel=dkey(d)===selectedId;
           const color=d.pColor||TYPE_COLOR[d.type];
+          const shortName=d.name.length>16?d.name.slice(0,15)+"…":d.name;
+          const tw=Math.max(shortName.length*4.8+12,32);
+          const above=jy>padT+50;
+          const labelRy=above?jy-18:jy+28;
+          const labelTy=above?jy-7:jy+39;
+          const labelX=Math.max(tw/2+4,Math.min(jx,W-tw/2-4));
           return(
             <g key={dkey(d)} style={{cursor:"pointer"}} onClick={()=>onSelect(dkey(d)===selectedId?null:dkey(d))}>
               {isSel&&<circle cx={jx} cy={jy} r="16" fill={color} fillOpacity="0.1"/>}
               {isSel&&<circle cx={jx} cy={jy} r="11" fill="none" stroke={color} strokeWidth="1" opacity="0.5"/>}
               <circle cx={jx} cy={jy} r={isSel?8:6} fill={color} fillOpacity={isSel?1:0.88} stroke={C.bg} strokeWidth="1.2"/>
-              <text x={jx} y={jy+(isSel?23:20)} fill={isSel?C.text:C.muted} fontSize={isSel?8:7} textAnchor="middle">{d.name}</text>
+              {isSel&&(
+                <>
+                  <rect x={labelX-tw/2} y={labelRy-12} width={tw} height={14} rx={5}
+                    fill={C.bg} stroke={color} strokeWidth="0.75" opacity="0.97"
+                    style={{filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.6))"}}/>
+                  <text x={labelX} y={labelTy} fill={C.text} fontSize={8} textAnchor="middle">{shortName}</text>
+                </>
+              )}
             </g>
           );
         });

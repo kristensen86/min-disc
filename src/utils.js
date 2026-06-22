@@ -19,7 +19,8 @@ export function resizeImage(file,maxPx=300){
 }
 
 export function encodeBag(bag,allDiscs){
-  const discs=bag.discIds.map(id=>allDiscs.find(d=>d.id===id)).filter(Boolean)
+  const entries=bag.bagEntries||(bag.discIds||[]).map(id=>({discId:id}));
+  const discs=entries.map(e=>allDiscs.find(d=>d.id===e.discId)).filter(Boolean)
     .map(({id,name,brand,type,speed,glide,turn,fade})=>({id,name,brand,type,speed,glide,turn,fade}));
   return btoa(unescape(encodeURIComponent(JSON.stringify({name:bag.name,discs}))));
 }
