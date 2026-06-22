@@ -608,32 +608,19 @@ export default function App() {
         {/* FLIGHT */}
         {tab === "flight" && (
           <div>
-            {/* Source tabs */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto", paddingBottom: 2 }}>
-              {[
-                { key: "owned", label: "Mine discs" },
-                ...bags.map(b => ({ key: "bag:" + b.id, label: b.name })),
-              ].map(({ key, label }) => {
-                const active = flightSourceKey === key;
-                return (
-                  <button key={key} onClick={() => setFlightSourceKey(key)} style={{
-                    flexShrink: 0, padding: "7px 14px", borderRadius: 999, cursor: "pointer",
-                    fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
-                    border: `1px solid ${active ? C.brand : C.line}`,
-                    background: active ? `${C.brand}18` : "transparent",
-                    color: active ? C.brand : C.muted,
-                    boxShadow: active ? `0 0 8px ${C.brand}30` : "none",
-                  }}>{label}</button>
-                );
-              })}
+            <div style={{ margin: "0 -16px" }}>
+              <FlightMatrix
+                discs={flightDiscs}
+                selectedId={flightSelected}
+                onSelect={setFlightSelected}
+                sources={[
+                  { key: "owned", label: "Mine discs" },
+                  ...bags.map(b => ({ key: "bag:" + b.id, label: b.name })),
+                ]}
+                sourceKey={flightSourceKey}
+                onSourceChange={setFlightSourceKey}
+              />
             </div>
-            {flightDiscs.length === 0 ? (
-              <Empty text="Ingen discs at vise her endnu."/>
-            ) : (
-              <div style={{ margin: "0 -16px", marginBottom: 14 }}>
-                <FlightMatrix discs={flightDiscs} selectedId={flightSelected} onSelect={setFlightSelected}/>
-              </div>
-            )}
             {flightSelectedDisc && <DiscCard disc={flightSelectedDisc}/>}
           </div>
         )}
