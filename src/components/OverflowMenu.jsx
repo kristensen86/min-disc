@@ -1,8 +1,14 @@
-import { X, BarChart2, Bookmark, Share2 } from "lucide-react";
+import { X, Tag, BarChart2, Bookmark, Share2 } from "lucide-react";
 import { C } from "../constants";
 
-export function OverflowMenu({ ownedCount, wishCount, onGoStats, onGoWish, onShare, onClose }) {
+export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, onGoStats, onGoWish, onShare, onClose }) {
   const items = [
+    {
+      icon: Tag, color: forSaleCount > 0 ? C.brand : C.muted,
+      label: "Salg",
+      desc: forSaleCount > 0 ? `${forSaleCount} disc${forSaleCount !== 1 ? "s" : ""} til salg` : "Ingen discs til salg",
+      onClick: onGoSalg,
+    },
     {
       icon: BarChart2, color: C.brand,
       label: "Statistik",

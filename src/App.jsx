@@ -419,13 +419,9 @@ export default function App() {
     </div>
   );
 
-  const NAV_TABS = [
-    ["db",    "Søg",  Search],
-    ["owned", "Mine", Library],
-    // FAB (camera) is center slot — not a tab entry
-    ["bags",  "Bags", Briefcase],
-    ["salg",  "Salg", Tag],
-  ];
+  // 4 nav tabs — FAB is center slot, Salg lives in overflow
+  const NAV_LEFT  = [["db", "Søg", Search], ["owned", "Mine", Library]];
+  const NAV_RIGHT = [["bags", "Bags", Briefcase]];
 
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: "100vh", fontFamily: "'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
@@ -805,6 +801,8 @@ export default function App() {
         <OverflowMenu
           ownedCount={owned.length}
           wishCount={wishlist.length}
+          forSaleCount={forSaleDiscs.length}
+          onGoSalg={() => { setTab("salg"); setOpenBagId(null); }}
           onGoStats={() => { setTab("stats"); setOpenBagId(null); }}
           onGoWish={() => { setTab("wish"); setOpenBagId(null); }}
           onShare={shareApp}
@@ -813,131 +811,78 @@ export default function App() {
       )}
 
       {/* Fixed bottom navigation */}
-      <nav style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
-        overflow: "visible",
-      }}>
+      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, overflow: "visible" }}>
         <div style={{
-          maxWidth: 560, margin: "0 auto",
-          display: "flex", alignItems: "center",
-          height: 64,
-          paddingBottom: "env(safe-area-inset-bottom)",
-          background: "#0a0f0aed",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
+          maxWidth: 560, margin: "0 auto", display: "flex", alignItems: "center",
+          height: 64, paddingBottom: "env(safe-area-inset-bottom)",
+          background: "#0a0f0a",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
           borderTop: "1px solid rgba(255,255,255,0.06)",
           boxShadow: "0 -4px 24px rgba(0,0,0,0.5)",
         }}>
-          {/* Søg + Mine */}
-          {NAV_TABS.slice(0, 2).map(([key, label, Icon]) => {
+
+          {/* Left: Søg + Mine */}
+          {NAV_LEFT.map(([key, label, Icon]) => {
             const active = tab === key;
             return (
               <button key={key} onClick={() => { setTab(key); setOpenBagId(null); }} style={{
                 flex: 1, height: "100%", display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 3,
-                background: "transparent", border: "none", cursor: "pointer",
-                color: active ? C.brand : C.muted, position: "relative",
+                alignItems: "center", justifyContent: "center", gap: 4,
+                background: "transparent", border: "none", cursor: "pointer", position: "relative",
               }}>
-                {active && (
-                  <span style={{
-                    position: "absolute", top: 0, left: "20%", right: "20%",
-                    height: 2, borderRadius: "0 0 3px 3px",
-                    background: C.brand, boxShadow: `0 0 8px ${C.brand}90`,
-                  }}/>
-                )}
-                <Icon size={22} strokeWidth={active ? 2.2 : 1.8}/>
-                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1 }}>{label}</span>
+                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#4ade80", boxShadow: "0 0 8px #4ade8090" }}/>}
+                <Icon size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#4ade80" : "#3d5249"}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#4ade80" : "#3d5249" }}>{label}</span>
               </button>
             );
           })}
 
-          {/* Central FAB — camera */}
+          {/* Center: FAB camera */}
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}>
-            <button
-              onClick={() => setShowDbScanner(true)}
-              aria-label="Scan disc"
-              style={{
-                width: 60, height: 60, borderRadius: "50%", flexShrink: 0,
-                background: "#0a0f0a",
-                border: "2px solid #4ade80",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px #4ade8030",
-                cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transform: "translateY(-16px)",
-              }}>
-              <Camera size={26} color="white"/>
+            <button onClick={() => setShowDbScanner(true)} aria-label="Scan disc" style={{
+              width: 56, height: 56, borderRadius: "50%", flexShrink: 0,
+              background: "#4ade80", border: "none",
+              boxShadow: "0 4px 20px rgba(74,222,128,0.4)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transform: "translateY(-12px)",
+            }}>
+              <Camera size={24} color="#0a0f0a" strokeWidth={2.2}/>
             </button>
           </div>
 
-          {/* Bags + Salg */}
-          {NAV_TABS.slice(2).map(([key, label, Icon]) => {
+          {/* Right: Bags */}
+          {NAV_RIGHT.map(([key, label, Icon]) => {
             const active = tab === key;
-            const badge = key === "salg" ? forSaleDiscs.length : 0;
             return (
-              <button key={key} onClick={() => { setTab(key); }} style={{
+              <button key={key} onClick={() => setTab(key)} style={{
                 flex: 1, height: "100%", display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 3,
-                background: "transparent", border: "none", cursor: "pointer",
-                color: active ? C.brand : C.muted, position: "relative",
+                alignItems: "center", justifyContent: "center", gap: 4,
+                background: "transparent", border: "none", cursor: "pointer", position: "relative",
               }}>
-                {active && (
-                  <span style={{
-                    position: "absolute", top: 0, left: "20%", right: "20%",
-                    height: 2, borderRadius: "0 0 3px 3px",
-                    background: C.brand, boxShadow: `0 0 8px ${C.brand}90`,
-                  }}/>
-                )}
-                <div style={{ position: "relative", lineHeight: 0 }}>
-                  <Icon size={22} strokeWidth={active ? 2.2 : 1.8}/>
-                  {badge > 0 && (
-                    <span style={{
-                      position: "absolute", top: -5, right: -7,
-                      background: C.brand, color: C.bg,
-                      fontSize: 9, fontWeight: 700, lineHeight: 1,
-                      padding: "2px 4px", borderRadius: 999,
-                      minWidth: 16, textAlign: "center",
-                    }}>{badge}</span>
-                  )}
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1 }}>{label}</span>
+                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#4ade80", boxShadow: "0 0 8px #4ade8090" }}/>}
+                <Icon size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#4ade80" : "#3d5249"}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#4ade80" : "#3d5249" }}>{label}</span>
               </button>
             );
           })}
 
-          {/* ••• overflow */}
+          {/* Mere — overflow */}
           {(() => {
-            const active = tab === "stats" || tab === "wish";
-            const badge = wishlist.length;
+            const active = tab === "stats" || tab === "wish" || tab === "salg";
             return (
               <button onClick={() => setShowOverflow(true)} style={{
                 flex: 1, height: "100%", display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 3,
-                background: "transparent", border: "none", cursor: "pointer",
-                color: active ? C.brand : C.muted, position: "relative",
+                alignItems: "center", justifyContent: "center", gap: 4,
+                background: "transparent", border: "none", cursor: "pointer", position: "relative",
               }}>
-                {active && (
-                  <span style={{
-                    position: "absolute", top: 0, left: "20%", right: "20%",
-                    height: 2, borderRadius: "0 0 3px 3px",
-                    background: C.brand, boxShadow: `0 0 8px ${C.brand}90`,
-                  }}/>
-                )}
-                <div style={{ position: "relative", lineHeight: 0 }}>
-                  <MoreHorizontal size={22} strokeWidth={active ? 2.2 : 1.8}/>
-                  {badge > 0 && (
-                    <span style={{
-                      position: "absolute", top: -5, right: -7,
-                      background: C.brand, color: C.bg,
-                      fontSize: 9, fontWeight: 700, lineHeight: 1,
-                      padding: "2px 4px", borderRadius: 999,
-                      minWidth: 16, textAlign: "center",
-                    }}>{badge}</span>
-                  )}
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1 }}>Mere</span>
+                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#4ade80", boxShadow: "0 0 8px #4ade8090" }}/>}
+                <MoreHorizontal size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#4ade80" : "#3d5249"}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#4ade80" : "#3d5249" }}>Mere</span>
               </button>
             );
           })()}
+
         </div>
       </nav>
 
