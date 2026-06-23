@@ -35,7 +35,7 @@ export default function App() {
   const [openBagId, setOpenBagId] = useState(null);
   const [showNewChoice, setShowNewChoice] = useState(false);
   const [showGenerator, setShowGenerator] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
+  const [bagsTab, setBagsTab] = useState("bags"); // "bags" | "compare" | "flight"
   const [flightSourceKey, setFlightSourceKey] = useState("owned");
   const [flightSelected, setFlightSelected] = useState(null);
   const [overrides, setOverrides] = useState({});
@@ -649,9 +649,26 @@ export default function App() {
               onEditDisc={openEditForDisc}/>
           ) : (
             <div>
-              {/* Flight — source selector handled inside FlightMatrix */}
-              {!showGenerator && !showCompare && (
-                <div style={{ margin: "0 -16px", marginBottom: 16 }}>
+              {/* 3-tab selector — hidden when generator is active */}
+              {!showGenerator && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  {[["bags", "Mine bags"], ["compare", "Sammenligning"], ["flight", "Flight"]].map(([key, label]) => {
+                    const active = bagsTab === key;
+                    return (
+                      <button key={key} onClick={() => setBagsTab(key)} style={{
+                        flex: 1, padding: "8px 0", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                        border: `1px solid ${active ? C.brand : C.line}`,
+                        background: active ? `${C.brand}18` : "transparent",
+                        color: active ? C.brand : C.muted,
+                      }}>{label}</button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Flight */}
+              {bagsTab === "flight" && !showGenerator && (
+                <div style={{ margin: "0 -16px" }}>
                   <FlightMatrix
                     discs={
                       bagsFlightSourceKey === "owned"
@@ -672,26 +689,13 @@ export default function App() {
                 </div>
               )}
 
-              {/* Mine bags / Sammenlign toggle */}
-              {!showGenerator && (
-                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  {["Mine bags", "Sammenlign"].map((label, i) => {
-                    const active = i === 0 ? !showCompare : showCompare;
-                    return (
-                      <button key={label} onClick={() => setShowCompare(i === 1)} style={{
-                        flex: 1, padding: "8px 0", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                        border: `1px solid ${active ? C.brand : C.line}`,
-                        background: active ? `${C.brand}18` : "transparent",
-                        color: active ? C.brand : C.muted,
-                      }}>{label}</button>
-                    );
-                  })}
-                </div>
+              {/* Sammenligning */}
+              {bagsTab === "compare" && !showGenerator && (
+                <BagComparison bags={bags} ownedDiscs={ownedDiscs} allDiscs={allDiscs} overrides={overrides}/>
               )}
 
-              {showCompare ? (
-                <BagComparison bags={bags} ownedDiscs={ownedDiscs} allDiscs={allDiscs} overrides={overrides}/>
-              ) : (
+              {/* Mine bags */}
+              {(bagsTab === "bags" || showGenerator) && (
                 <>
                   {!showGenerator && (
                     <>
