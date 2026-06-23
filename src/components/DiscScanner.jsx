@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { X, Camera, Check, Search, Loader, ChevronLeft, ZoomIn, ZoomOut } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Camera, Check, Search, Loader, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage } from "../utils";
 import { btn } from "./ui";
@@ -13,91 +13,13 @@ const CONF = {
 };
 
 export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }) {
-  const [phase, setPhase] = useState("idle"); // idle | camera | scanning | confirm | editing | error
+  const [phase, setPhase] = useState("idle"); // idle | scanning | confirm | editing | error
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [zoomMin, setZoomMin] = useState(1);
-  const [zoomMax, setZoomMax] = useState(5);
-  const [zoomSupported, setZoomSupported] = useState(false);
   const inputRef = useRef();
   const editFileRef = useRef();
-  const videoRef = useRef();
-  const streamRef = useRef(null);
-  const trackRef = useRef(null);
-
-  function stopStream() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    trackRef.current = null;
-  }
-
-  // Attach stream to video element after camera phase renders
-  useEffect(() => {
-    if (phase === "camera" && videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    }
-  }, [phase]);
-
-  // Stop stream on unmount
-  useEffect(() => () => stopStream(), []);
-
-  async function applyZoom(track, value) {
-    // Try both constraint formats — different browsers/devices expect different forms
-    try { await track.applyConstraints({ advanced: [{ zoom: value }] }); return; } catch {}
-    try { await track.applyConstraints({ zoom: value }); } catch {}
-  }
-
-  async function openCamera() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      inputRef.current?.click();
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      streamRef.current = stream;
-
-      const track = stream.getVideoTracks()[0];
-      if (track) {
-        trackRef.current = track;
-        const caps = track.getCapabilities ? track.getCapabilities() : {};
-
-        if (caps.zoom) {
-          // Use actual min from device capabilities — may be < 1 on ultra-wide cameras
-          const min = caps.zoom.min ?? 1;
-          const max = caps.zoom.max ?? 5;
-          setZoomMin(min);
-          setZoomMax(max);
-          setZoomLevel(min);
-          setZoomSupported(true);
-          await applyZoom(track, min);
-        } else {
-          setZoomSupported(false);
-          // Still attempt reset — catches devices that support zoom but
-          // don't surface it via getCapabilities()
-          await applyZoom(track, 1);
-        }
-      }
-
-      setPhase("camera");
-    } catch {
-      // Permission denied or unsupported — fall back to file input
-      inputRef.current?.click();
-    }
-  }
-
-  async function handleZoomChange(value) {
-    setZoomLevel(value);
-    const track = trackRef.current;
-    if (!track) return;
-    await applyZoom(track, value);
-  }
 
   async function analyzeBase64(base64) {
     const controller = new AbortController();
@@ -152,27 +74,6 @@ Svar KUN med JSON, ingen forklaring.` },
       setPhase("error");
       setErrorMsg(e.name === "AbortError" ? "Timeout — prøv manuel søgning." : "Kunne ikke genkende disc'en. Prøv manuel søgning.");
     }
-  }
-
-  async function captureAndAnalyze() {
-    const video = videoRef.current;
-    if (!video) return;
-    setPhase("scanning");
-
-    const size = 800;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const side = Math.min(vw, vh);
-    const sx = (vw - side) / 2, sy = (vh - side) / 2;
-    ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
-
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    stopStream();
-    setPreview(dataUrl);
-    await analyzeBase64(dataUrl.split(",")[1]);
   }
 
   async function handleFile(file) {
@@ -234,85 +135,6 @@ Svar KUN med JSON, ingen forklaring.` },
   };
   const lbl = { fontSize: 11, color: C.muted, letterSpacing: "0.04em" };
 
-  // ── Camera overlay (full-screen, replaces bottom sheet) ──────────────────
-  if (phase === "camera") {
-    return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "#000", overflow: "hidden" }}>
-        {/* Live feed */}
-        <video ref={videoRef} autoPlay playsInline muted style={{
-          position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-        }}/>
-
-        {/* Circular cutout overlay — box-shadow fills outside the circle */}
-        <div style={{
-          position: "absolute",
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -58%)",
-          width: 320, height: 320, borderRadius: "50%",
-          border: `2px solid ${C.brand}`,
-          boxShadow: "0 0 0 9999px rgba(0,0,0,0.60)",
-          pointerEvents: "none",
-        }}/>
-
-        {/* Guide text below circle */}
-        <div style={{
-          position: "absolute",
-          top: "calc(42% + 178px)",
-          left: 0, right: 0,
-          textAlign: "center",
-          color: "rgba(255,255,255,0.80)",
-          fontSize: 13,
-          pointerEvents: "none",
-        }}>
-          Placer disc inden for cirklen
-        </div>
-
-        {/* Cancel – top left */}
-        <button onClick={() => { stopStream(); setPhase("idle"); }} style={{
-          position: "absolute", top: 20, left: 20,
-          display: "flex", alignItems: "center", gap: 6,
-          background: "rgba(0,0,0,0.50)", border: "none",
-          color: "#fff", padding: "9px 16px", borderRadius: 12,
-          cursor: "pointer", fontSize: 14, fontWeight: 500,
-        }}>
-          <X size={15}/> Annullér
-        </button>
-
-        {/* Zoom slider – above capture button, only if supported */}
-        {zoomSupported && (
-          <div style={{
-            position: "absolute", bottom: 144, left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex", alignItems: "center", gap: 10,
-            background: "rgba(0,0,0,0.45)", padding: "7px 16px", borderRadius: 20,
-            width: "min(260px, 75%)",
-          }}>
-            <ZoomOut size={15} color="rgba(255,255,255,0.65)"/>
-            <input type="range" min={zoomMin} max={zoomMax} step={0.1}
-              value={zoomLevel}
-              onChange={e => handleZoomChange(Number(e.target.value))}
-              style={{ flex: 1, accentColor: C.brand, cursor: "pointer" }}/>
-            <ZoomIn size={15} color="rgba(255,255,255,0.65)"/>
-          </div>
-        )}
-
-        {/* Capture button – bottom center */}
-        <button onClick={captureAndAnalyze} aria-label="Tag billede" style={{
-          position: "absolute", bottom: 52, left: "50%",
-          transform: "translateX(-50%)",
-          width: 72, height: 72, borderRadius: "50%",
-          background: C.brand, border: "4px solid rgba(255,255,255,0.35)",
-          cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 0 24px ${C.brand}60`,
-        }}>
-          <Camera size={26} color="#000"/>
-        </button>
-      </div>
-    );
-  }
-
-  // ── Bottom sheet (all other phases) ─────────────────────────────────────
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 200,
@@ -348,11 +170,10 @@ Svar KUN med JSON, ingen forklaring.` },
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>
               Tag et billede af din disc, og Claude Vision identificerer den automatisk.
             </p>
-            {/* Fallback for browsers without getUserMedia */}
             <input ref={inputRef} type="file" accept="image/*" capture="environment"
               style={{ display: "none" }}
               onChange={e => handleFile(e.target.files?.[0])}/>
-            <button onClick={openCamera} style={{
+            <button onClick={() => inputRef.current?.click()} style={{
               ...btn("primary"), display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 24px",
             }}>
               <Camera size={16}/> Åbn kamera
