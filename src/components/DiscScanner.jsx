@@ -23,7 +23,7 @@ function cropDisc(dataUrl, discPos) {
         const cx = (centerX / 100) * img.width;
         const cy = (centerY / 100) * img.height;
         const r  = (radius  / 100) * img.width;
-        const side = r * 2 - 2; // 1px inside disc edge, no air
+        const side = r * 1.65; // tight crop: ~17% inside detected edge each side
 
         const size = 400;
         const canvas = document.createElement("canvas");
@@ -106,7 +106,7 @@ Udfør to opgaver og svar med JSON:
    Find den runde disc i billedet og returner:
    centerX: disc centrum X som procent af billedbredde (0-100)
    centerY: disc centrum Y som procent af billedhøjde (0-100)
-   radius: disc radius som procent af billedbredde (0-100)
+   radius: disc radius SOM PRÆCIST måler til discens fysiske plastkant — IKKE til skyggekant eller baggrund. Underestimer hellere lidt end overestimer. Procent af billedbredde (0-100)
    Hvis disc ikke kan lokaliseres, sæt disc til null.
 
 Svar KUN med JSON:
