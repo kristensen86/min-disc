@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { Search, Plus, Check, Trash2, X, Pencil, Camera } from "lucide-react";
+import { Search, Plus, Check, Trash2, X, Pencil } from "lucide-react";
 import { C, TYPES, TYPE_COLOR } from "../constants";
 import { resolveDisc, conditionText } from "../utils";
 import { btn, iconBtn, secHdr, Empty } from "./ui";
 import { DiscCard } from "./DiscCard";
-import { DiscScanner } from "./DiscScanner";
 
 const TYPE_FILTERS = ["Alle", ...TYPES];
 
-export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRename, onDelete, onAddDisc, onRemoveDisc, onEditDisc }) {
+export function BagDetail({ bag, ownedDiscs, overrides, onBack, onRename, onDelete, onAddDisc, onRemoveDisc, onEditDisc }) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Alle");
-  const [showScanner, setShowScanner] = useState(false);
+  const [removingUid, setRemovingUid] = useState(null);
 
   if (!bag) return <Empty text="Bag ikke fundet."/>;
 
@@ -38,9 +37,12 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
     ...filtered.filter(d => !inBagUids.has(d.uid)),
   ];
 
-  function handleScanResult(name, brand) {
-    setQuery(name ? name : "");
-    setShowScanner(false);
+  function handleRemoveFromBag(uid, entryId) {
+    setRemovingUid(uid);
+    setTimeout(() => {
+      onRemoveDisc(entryId);
+      setRemovingUid(null);
+    }, 500);
   }
 
   return (
@@ -55,20 +57,14 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
       </div>
 
       {/* Search row */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 12px",
-          background: C.surface, border: `1px solid ${C.line}`, borderRadius: 12 }}>
-          <Search size={16} color={C.muted}/>
-          <input value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="Søg i mine discs…"
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none",
-              color: C.text, padding: "10px 0", fontSize: 14 }}/>
-          {query && <button onClick={() => setQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={14}/></button>}
-        </div>
-        <button onClick={() => setShowScanner(true)} aria-label="Scan disc" title="Scan disc med kamera"
-          style={{ ...iconBtn(C.brand), flexShrink: 0 }}>
-          <Camera size={16}/>
-        </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 12px", marginBottom: 10,
+        background: C.surface, border: `1px solid ${C.line}`, borderRadius: 12 }}>
+        <Search size={16} color={C.muted}/>
+        <input value={query} onChange={e => setQuery(e.target.value)}
+          placeholder="Søg i mine discs…"
+          style={{ flex: 1, background: "transparent", border: "none", outline: "none",
+            color: C.text, padding: "10px 0", fontSize: 14 }}/>
+        {query && <button onClick={() => setQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={14}/></button>}
       </div>
 
       {/* Type filter chips */}
@@ -140,13 +136,20 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
 
                 {/* Add/check button */}
                 {inBag ? (
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  <button onClick={() => {
+                    const entry = bagEntries.find(e => e.instanceId === d.uid);
+                    if (entry && removingUid !== d.uid) handleRemoveFromBag(d.uid, entry.entryId);
+                  }} aria-label={`Fjern ${d.name} fra bag`} style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0, cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    background: `${C.brand}20`, border: `1px solid ${C.brand}60`,
+                    background: removingUid === d.uid ? `${C.distance}20` : `${C.brand}20`,
+                    border: `1px solid ${removingUid === d.uid ? C.distance + "60" : C.brand + "60"}`,
+                    transition: "background 0.2s, border-color 0.2s",
                   }}>
-                    <Check size={15} color={C.brand}/>
-                  </div>
+                    {removingUid === d.uid
+                      ? <X size={15} color={C.distance}/>
+                      : <Check size={15} color={C.brand}/>}
+                  </button>
                 ) : (
                   <button onClick={() => onAddDisc(d.uid)} aria-label={`Tilføj ${d.name}`} style={{
                     width: 32, height: 32, borderRadius: 8, flexShrink: 0, cursor: "pointer",
@@ -184,12 +187,6 @@ export function BagDetail({ bag, ownedDiscs, allDiscs, overrides, onBack, onRena
         </div>
       )}
 
-      {showScanner && (
-        <DiscScanner
-          allDiscs={allDiscs}
-          onFound={handleScanResult}
-          onClose={() => setShowScanner(false)}/>
-      )}
     </div>
   );
 }

@@ -46,6 +46,7 @@ export default function App() {
   const [customDiscs, setCustomDiscs] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showDbScanner, setShowDbScanner] = useState(false);
   const [ownedQuery, setOwnedQuery] = useState("");
   const [sharedBag, setSharedBag] = useState(() => {
     try { const p = new URLSearchParams(window.location.search).get("bag"); return p ? decodeBag(p) : null; }
@@ -466,12 +467,26 @@ export default function App() {
         {/* DATABASE */}
         {tab === "db" && (
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 13px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13, marginBottom: 12 }}>
-              <Search size={17} color={C.muted}/>
-              <input value={query} onChange={e => { setQuery(e.target.value); setVisible(40); }} placeholder="Søg disc eller mærke…"
-                style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
-              {query && <button onClick={() => { setQuery(""); setVisible(40); }} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 13px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13 }}>
+                <Search size={17} color={C.muted}/>
+                <input value={query} onChange={e => { setQuery(e.target.value); setVisible(40); }} placeholder="Søg disc eller mærke…"
+                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
+                {query && <button onClick={() => { setQuery(""); setVisible(40); }} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
+              </div>
+              <button onClick={() => setShowDbScanner(true)} aria-label="Scan disc" title="Scan disc med kamera" style={{
+                width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13, cursor: "pointer", color: C.brand,
+              }}>
+                <Camera size={18}/>
+              </button>
             </div>
+            {showDbScanner && (
+              <DiscScanner
+                allDiscs={allDiscs}
+                onFound={(name, brand) => { const q = [name, brand].filter(Boolean).join(" "); setQuery(q); setVisible(40); setShowDbScanner(false); }}
+                onClose={() => setShowDbScanner(false)}/>
+            )}
             <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
               {["Alle", ...TYPES].map(t => (
                 <button key={t} onClick={() => { setTypeFilter(t); setVisible(40); }} style={{
@@ -593,7 +608,7 @@ export default function App() {
           openBagId ? (
             <BagDetail
               bag={bags.find(b => b.id === openBagId)}
-              ownedDiscs={ownedDiscs} allDiscs={allDiscs}
+              ownedDiscs={ownedDiscs}
               onBack={() => setOpenBagId(null)}
               onRename={() => renameBag(openBagId)}
               onDelete={() => deleteBag(openBagId)}
