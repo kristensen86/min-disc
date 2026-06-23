@@ -649,54 +649,26 @@ export default function App() {
               onEditDisc={openEditForDisc}/>
           ) : (
             <div>
-              {/* Flight — source selector + matrix */}
+              {/* Flight — source selector handled inside FlightMatrix */}
               {!showGenerator && !showCompare && (
-                <div style={{ marginBottom: 16 }}>
-                  {/* Row: dropdown + del */}
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 0 }}>
-                    <select
-                      value={bagsFlightSourceKey}
-                      onChange={e => { setBagsFlightSourceKey(e.target.value); setBagsFlightSelected(null); }}
-                      style={{
-                        flex: 1, padding: "10px 13px", background: C.surface,
-                        border: `1px solid ${C.line}`, borderRadius: 12,
-                        color: C.text, fontSize: 14, cursor: "pointer", outline: "none",
-                      }}>
-                      <option value="owned" style={{ background: C.surface }}>Mine discs (alle)</option>
-                      {bags.length > 0 && <option disabled style={{ background: C.surface, color: C.muted }}>──────────</option>}
-                      {bags.map(b => (
-                        <option key={b.id} value={"bag:" + b.id} style={{ background: C.surface }}>{b.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        if (bagsFlightSourceKey === "owned") shareApp();
-                        else { const b = bags.find(b => "bag:" + b.id === bagsFlightSourceKey); if (b) shareBag(b); }
-                      }}
-                      aria-label="Del"
-                      style={{
-                        width: 42, height: 42, flexShrink: 0, borderRadius: 12, cursor: "pointer",
-                        background: C.surface, border: `1px solid ${C.line}`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: C.muted,
-                      }}>
-                      <Share2 size={16}/>
-                    </button>
-                  </div>
-                  {/* Flight matrix */}
-                  <div style={{ margin: "0 -16px" }}>
-                    <FlightMatrix
-                      discs={
-                        bagsFlightSourceKey === "owned"
-                          ? resolvedOwned
-                          : (bags.find(b => "bag:" + b.id === bagsFlightSourceKey)?.bagEntries || [])
-                              .map(e => { const od = ownedDiscs.find(od => od.uid === e.instanceId); return od ? resolveDisc(od, overrides) : null; })
-                              .filter(Boolean)
-                      }
-                      selectedId={bagsFlightSelected}
-                      onSelect={setBagsFlightSelected}
-                    />
-                  </div>
+                <div style={{ margin: "0 -16px", marginBottom: 16 }}>
+                  <FlightMatrix
+                    discs={
+                      bagsFlightSourceKey === "owned"
+                        ? resolvedOwned
+                        : (bags.find(b => "bag:" + b.id === bagsFlightSourceKey)?.bagEntries || [])
+                            .map(e => { const od = ownedDiscs.find(od => od.uid === e.instanceId); return od ? resolveDisc(od, overrides) : null; })
+                            .filter(Boolean)
+                    }
+                    selectedId={bagsFlightSelected}
+                    onSelect={setBagsFlightSelected}
+                    sources={[
+                      { key: "owned", label: "Mine discs (alle)" },
+                      ...bags.map(b => ({ key: "bag:" + b.id, label: b.name })),
+                    ]}
+                    sourceKey={bagsFlightSourceKey}
+                    onSourceChange={key => { setBagsFlightSourceKey(key); setBagsFlightSelected(null); }}
+                  />
                 </div>
               )}
 

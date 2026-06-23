@@ -148,24 +148,27 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
 
   return (
     <div>
-      {/* Single control row */}
+      {/* Control row — only renders select when sources are provided */}
       <div style={{
         display: "flex", alignItems: "center", gap: 8,
-        padding: "8px 16px 8px",
+        padding: "8px 16px",
+        justifyContent: sources.length === 0 ? "flex-end" : "flex-start",
       }}>
-        <select
-          value={sourceKey}
-          onChange={e => onSourceChange?.(e.target.value)}
-          style={{
-            flex: 1, padding: "9px 12px", borderRadius: 10, cursor: "pointer",
-            background: C.surface, border: `1px solid ${C.line}`,
-            color: C.text, fontSize: 13, appearance: "none",
-          }}
-        >
-          {sources.map(s => (
-            <option key={s.key} value={s.key} style={{ background: C.surface }}>{s.label}</option>
-          ))}
-        </select>
+        {sources.length > 0 && (
+          <select
+            value={sourceKey}
+            onChange={e => onSourceChange?.(e.target.value)}
+            style={{
+              flex: 1, padding: "11px 13px", borderRadius: 12, cursor: "pointer",
+              background: C.surface, border: `1px solid ${C.line}`,
+              color: C.text, fontSize: 14, outline: "none",
+            }}
+          >
+            {sources.map(s => (
+              <option key={s.key} value={s.key} style={{ background: C.surface }}>{s.label}</option>
+            ))}
+          </select>
+        )}
         <button
           onClick={exportImage}
           aria-label="Del matrix"
