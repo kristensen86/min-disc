@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
+import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
@@ -431,10 +431,9 @@ export default function App() {
         {/* Header */}
         <div style={{ background: `linear-gradient(180deg, ${C.surface} 0%, transparent 100%)`, margin: "0 -16px", padding: "20px 16px 18px", marginBottom: 4 }}>
           <header style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Disc3 size={24} color={C.brand}/>
             <h1 style={{ margin: 0, fontFamily: "Pacifico,cursive", fontWeight: 400, fontSize: 30, color: C.brand, lineHeight: 1 }}>BagUp</h1>
             <span style={{ marginLeft: "auto", fontSize: 12, color: C.muted, letterSpacing: "0.03em", background: C.raised, border: `1px solid ${C.line}`, padding: "5px 12px", borderRadius: 999 }}>
-              {owned.length} ejet
+              {owned.length} discs
             </span>
             <button onClick={shareApp} aria-label="Del BagUp" title={shareCopied ? "Link kopieret!" : "Del BagUp"}
               style={{ ...iconBtn(shareCopied ? C.brand : C.muted), flexShrink: 0, position: "relative" }}>
@@ -446,11 +445,6 @@ export default function App() {
                 </span>
               )}
             </button>
-            {authUser && supabase && (
-              <button onClick={() => supabase.auth.signOut()} aria-label="Log ud" title={authUser.email} style={{ ...iconBtn(C.muted), flexShrink: 0 }}>
-                <LogOut size={15}/>
-              </button>
-            )}
           </header>
         </div>
 
@@ -809,6 +803,8 @@ export default function App() {
           onGoStats={() => { setTab("stats"); setOpenBagId(null); }}
           onGoWish={() => { setTab("wish"); setOpenBagId(null); }}
           onShare={shareApp}
+          onLogout={authUser && supabase ? () => supabase.auth.signOut() : null}
+          userEmail={authUser?.email}
           onClose={() => setShowOverflow(false)}
         />
       )}

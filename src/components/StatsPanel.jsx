@@ -1,6 +1,21 @@
-import { C, TYPE_COLOR, TYPES } from "../constants";
+import { C, TYPE_COLOR, TYPES, DISC_COLORS } from "../constants";
 import { Empty } from "./ui";
 import { CollectorStatus } from "./CollectorStatus";
+
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function nearestStdColor(hex) {
+  const [r1,g1,b1] = hexToRgb(hex);
+  let best = DISC_COLORS[0], bestDist = Infinity;
+  for (const c of DISC_COLORS) {
+    const [r2,g2,b2] = hexToRgb(c);
+    const d = (r1-r2)**2+(g1-g2)**2+(b1-b2)**2;
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best;
+}
 
 function StatCard({title,children}){
   return(
@@ -25,7 +40,7 @@ export function StatsPanel({resolvedOwned, allDiscs}){
   const maxBrandCount=byBrand.length>0?byBrand[0][1]:1;
 
   const colorMap={};
-  resolvedOwned.forEach(d=>{if(d.pColor)colorMap[d.pColor]=(colorMap[d.pColor]||0)+1;});
+  resolvedOwned.forEach(d=>{if(d.pColor){const std=nearestStdColor(d.pColor);colorMap[std]=(colorMap[std]||0)+1;}});
   const byColor=Object.entries(colorMap).sort((a,b)=>b[1]-a[1]);
 
   const plasticMap={};

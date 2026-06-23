@@ -1,7 +1,7 @@
-import { X, Tag, BarChart2, Bookmark, Share2 } from "lucide-react";
+import { X, Tag, BarChart2, Bookmark, Share2, LogOut } from "lucide-react";
 import { C } from "../constants";
 
-export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, onGoStats, onGoWish, onShare, onClose }) {
+export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, onGoStats, onGoWish, onShare, onLogout, userEmail, onClose }) {
   const items = [
     {
       icon: Tag, color: forSaleCount > 0 ? C.brand : C.muted,
@@ -27,6 +27,12 @@ export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, on
       desc: "Invitér en ven til BagUp",
       onClick: onShare,
     },
+    ...(onLogout ? [{
+      icon: LogOut, color: C.muted,
+      label: "Log ud",
+      desc: userEmail || "Log ud af BagUp",
+      onClick: onLogout,
+    }] : []),
   ];
 
   return (
