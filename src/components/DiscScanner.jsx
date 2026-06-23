@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Camera, Check, Search, Loader, ChevronLeft } from "lucide-react";
+import { X, Camera, Check, Search, Loader, ChevronLeft, ZoomIn, ZoomOut } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage } from "../utils";
 import { btn } from "./ui";
@@ -18,16 +18,20 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomSupported, setZoomSupported] = useState(false);
   const inputRef = useRef();
   const editFileRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef(null);
+  const trackRef = useRef(null);
 
   function stopStream() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
+    trackRef.current = null;
   }
 
   // Attach stream to video element after camera phase renders
@@ -50,11 +54,33 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
         video: { facingMode: "environment" },
       });
       streamRef.current = stream;
+
+      // Detect zoom support and reset to 1x
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        trackRef.current = track;
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if (caps.zoom) {
+          setZoomSupported(true);
+          try { await track.applyConstraints({ advanced: [{ zoom: 1 }] }); } catch {}
+        } else {
+          setZoomSupported(false);
+        }
+      }
+
+      setZoomLevel(1);
       setPhase("camera");
     } catch {
       // Permission denied or unsupported — fall back to file input
       inputRef.current?.click();
     }
+  }
+
+  async function handleZoomChange(value) {
+    setZoomLevel(value);
+    const track = trackRef.current;
+    if (!track) return;
+    try { await track.applyConstraints({ advanced: [{ zoom: value }] }); } catch {}
   }
 
   async function analyzeBase64(base64) {
@@ -206,7 +232,7 @@ Svar KUN med JSON, ingen forklaring.` },
           position: "absolute",
           top: "50%", left: "50%",
           transform: "translate(-50%, -58%)",
-          width: 280, height: 280, borderRadius: "50%",
+          width: 320, height: 320, borderRadius: "50%",
           border: `2px solid ${C.brand}`,
           boxShadow: "0 0 0 9999px rgba(0,0,0,0.60)",
           pointerEvents: "none",
@@ -215,7 +241,7 @@ Svar KUN med JSON, ingen forklaring.` },
         {/* Guide text below circle */}
         <div style={{
           position: "absolute",
-          top: "calc(42% + 158px)",
+          top: "calc(42% + 178px)",
           left: 0, right: 0,
           textAlign: "center",
           color: "rgba(255,255,255,0.80)",
@@ -235,6 +261,24 @@ Svar KUN med JSON, ingen forklaring.` },
         }}>
           <X size={15}/> Annullér
         </button>
+
+        {/* Zoom slider – above capture button, only if supported */}
+        {zoomSupported && (
+          <div style={{
+            position: "absolute", bottom: 144, left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", gap: 10,
+            background: "rgba(0,0,0,0.45)", padding: "7px 16px", borderRadius: 20,
+            width: "min(260px, 75%)",
+          }}>
+            <ZoomOut size={15} color="rgba(255,255,255,0.65)"/>
+            <input type="range" min={1} max={5} step={0.1}
+              value={zoomLevel}
+              onChange={e => handleZoomChange(Number(e.target.value))}
+              style={{ flex: 1, accentColor: C.brand, cursor: "pointer" }}/>
+            <ZoomIn size={15} color="rgba(255,255,255,0.65)"/>
+          </div>
+        )}
 
         {/* Capture button – bottom center */}
         <button onClick={captureAndAnalyze} aria-label="Tag billede" style={{
