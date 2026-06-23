@@ -1,26 +1,34 @@
 import { useState, useRef } from "react";
-import { X, Camera, Check, Search, Loader } from "lucide-react";
-import { C } from "../constants";
+import { X, Camera, Check, Search, Loader, ChevronLeft } from "lucide-react";
+import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage } from "../utils";
 import { btn } from "./ui";
 
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
-export function DiscScanner({ allDiscs, onFound, onClose }) {
-  const [phase, setPhase] = useState("idle"); // idle | scanning | confirm | error
+const CONF = {
+  high:   { label: "Høj sikkerhed", color: C.brand },
+  medium: { label: "Middel sikkerhed", color: "#fdba74" },
+  low:    { label: "Lav sikkerhed", color: C.distance },
+};
+
+export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }) {
+  const [phase, setPhase] = useState("idle"); // idle | scanning | confirm | editing | error
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [editVals, setEditVals] = useState(null);
   const inputRef = useRef();
+  const editFileRef = useRef();
 
   async function handleFile(file) {
     if (!file) return;
     setPhase("scanning");
     setErrorMsg("");
 
-    let base64;
+    let base64, dataUrl;
     try {
-      const dataUrl = await resizeImage(file, 800);
+      dataUrl = await resizeImage(file, 800);
       base64 = dataUrl.split(",")[1];
       setPreview(dataUrl);
     } catch {
@@ -30,7 +38,7 @@ export function DiscScanner({ allDiscs, onFound, onClose }) {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -44,28 +52,21 @@ export function DiscScanner({ allDiscs, onFound, onClose }) {
         },
         body: JSON.stringify({
           model: "claude-opus-4-6",
-          max_tokens: 256,
+          max_tokens: 512,
           messages: [{
             role: "user",
             content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: "image/jpeg", data: base64 },
-              },
-              {
-                type: "text",
-                text: `Dette er et billede af en disc golf disc. Identificér venligst:
-- Disc navn (mold navn)
-- Mærke/brand
-- Plast type hvis synlig
-- Farve
-
-Svar KUN med JSON i dette format:
-{"name":"...","brand":"...","plastic":"...","color":"..."}
-
-Hvis du ikke kan identificere disc'en svar med:
-{"error":"kunne ikke identificere"}`,
-              },
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+              { type: "text", text: `Dette er et billede af en disc golf disc.
+Identificér så præcist som muligt:
+- name: disc mold navn (fx MD4, Zone, Destroyer)
+- brand: mærke (fx Discmania, Discraft, Innova)
+- plastic: plasttype og evt. edition synlig på disc (fx Swirl S-Line, Big Z, Star, Champion)
+- color: farve på dansk (fx orange, lyserød, gul, hvid)
+- colorHex: nærmeste hex-farvekode baseret på disc farven
+- speed, glide, turn, fade: hvis du kender disse tal for denne disc mold
+- confidence: high hvis du er sikker, medium hvis nogenlunde sikker, low hvis usikker
+Svar KUN med JSON, ingen forklaring.` },
             ],
           }],
         }),
@@ -89,22 +90,55 @@ Hvis du ikke kan identificere disc'en svar med:
       setPhase("confirm");
     } catch (e) {
       clearTimeout(timeout);
-      if (e.name === "AbortError") {
-        setErrorMsg("Timeout — prøv manuel søgning.");
-      } else {
-        setErrorMsg("Kunne ikke genkende disc'en. Prøv manuel søgning.");
-      }
       setPhase("error");
+      setErrorMsg(e.name === "AbortError" ? "Timeout — prøv manuel søgning." : "Kunne ikke genkende disc'en. Prøv manuel søgning.");
     }
   }
 
-  function handleConfirm() {
-    onFound(result?.name || "", result?.brand || "");
+  function startEditing() {
+    const type = result.speed ? typeFromSpeed(Number(result.speed)) : "Distance";
+    setEditVals({
+      name: result.name || "",
+      brand: result.brand || "",
+      type,
+      speed: result.speed ?? 7,
+      glide: result.glide ?? 5,
+      turn: result.turn ?? 0,
+      fade: result.fade ?? 2,
+      pPlastic: result.plastic || "",
+      pColor: result.colorHex || "",
+      pPhoto: preview || "",
+    });
+    setPhase("editing");
   }
 
-  function handleManual() {
-    onFound(result?.name || "", "");
+  function handleDirectAdd() {
+    onDirectAdd(result, preview);
   }
+
+  function handleEditConfirm() {
+    onDirectAdd({
+      name: editVals.name,
+      brand: editVals.brand,
+      type: editVals.type,
+      speed: Number(editVals.speed),
+      glide: Number(editVals.glide),
+      turn: Number(editVals.turn),
+      fade: Number(editVals.fade),
+      plastic: editVals.pPlastic,
+      colorHex: editVals.pColor,
+    }, editVals.pPhoto);
+  }
+
+  const conf = result?.confidence ? (CONF[result.confidence] || CONF.medium) : null;
+  const hasFlightNums = result && (result.speed != null || result.glide != null || result.turn != null || result.fade != null);
+
+  const inp = {
+    padding: "8px 10px", borderRadius: 9, fontFamily: "inherit",
+    background: C.surface, border: `1px solid ${C.line}`,
+    color: C.text, fontSize: 13, width: "100%", outline: "none", boxSizing: "border-box",
+  };
+  const lbl = { fontSize: 11, color: C.muted, letterSpacing: "0.04em" };
 
   return (
     <div style={{
@@ -116,10 +150,20 @@ Hvis du ikke kan identificere disc'en svar med:
         width: "100%", maxWidth: 560,
         background: C.surface, border: `1px solid ${C.line}`,
         borderRadius: "20px 20px 0 0", padding: "24px 20px 36px",
+        maxHeight: "90vh", overflowY: "auto",
       }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <span style={{ fontSize: 16, fontWeight: 600, color: C.text }}>Scan disc</span>
+          {phase === "editing" ? (
+            <button onClick={() => setPhase("confirm")} style={{
+              background: "none", border: "none", cursor: "pointer", color: C.muted,
+              padding: 4, display: "flex", alignItems: "center", gap: 4, fontSize: 14,
+            }}>
+              <ChevronLeft size={16}/> Tilbage
+            </button>
+          ) : (
+            <span style={{ fontSize: 16, fontWeight: 600, color: C.text }}>Scan disc</span>
+          )}
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, padding: 4 }}>
             <X size={18}/>
           </button>
@@ -135,9 +179,7 @@ Hvis du ikke kan identificere disc'en svar med:
               style={{ display: "none" }}
               onChange={e => handleFile(e.target.files?.[0])}/>
             <button onClick={() => inputRef.current?.click()} style={{
-              ...btn("primary"),
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "13px 24px",
+              ...btn("primary"), display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 24px",
             }}>
               <Camera size={16}/> Åbn kamera
             </button>
@@ -149,8 +191,8 @@ Hvis du ikke kan identificere disc'en svar med:
           <div style={{ textAlign: "center", padding: "20px 0" }}>
             {preview && (
               <img src={preview} alt="Preview" style={{
-                width: 120, height: 120, objectFit: "cover", borderRadius: 12,
-                border: `1px solid ${C.line}`, marginBottom: 16,
+                width: 80, height: 80, objectFit: "cover", borderRadius: "50%",
+                border: `2px solid ${C.line}`, marginBottom: 16,
               }}/>
             )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: C.muted, fontSize: 14 }}>
@@ -164,42 +206,192 @@ Hvis du ikke kan identificere disc'en svar med:
         {/* confirm */}
         {phase === "confirm" && result && (
           <div>
-            <div style={{ display: "flex", gap: 14, alignItems: "center",
-              background: C.raised, border: `1px solid ${C.line}`, borderRadius: 14,
-              padding: "14px 16px", marginBottom: 6 }}>
+            {/* Disc card */}
+            <div style={{
+              display: "flex", gap: 14, alignItems: "center",
+              background: C.raised, border: `1px solid ${C.line}`,
+              borderRadius: 14, padding: "14px 16px", marginBottom: 10,
+            }}>
               {preview && (
                 <img src={preview} alt="Disc" style={{
-                  width: 64, height: 64, objectFit: "cover", borderRadius: 10,
-                  border: `1px solid ${C.line}`, flexShrink: 0,
+                  width: 80, height: 80, objectFit: "cover", borderRadius: "50%",
+                  border: `2px solid ${C.line}`, flexShrink: 0,
                 }}/>
               )}
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 4 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 2 }}>
                   {result.name || "Ukendt disc"}
                 </div>
-                <div style={{ fontSize: 13, color: C.muted }}>
-                  {[result.brand, result.plastic, result.color].filter(Boolean).join(" · ")}
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>
+                  {result.brand || ""}
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 6 }}>
+                  {result.colorHex && (
+                    <span style={{
+                      width: 12, height: 12, borderRadius: "50%", flexShrink: 0, display: "inline-block",
+                      background: result.colorHex, boxShadow: `0 0 6px ${result.colorHex}80`,
+                    }}/>
+                  )}
+                  {result.plastic && (
+                    <span style={{ fontSize: 12, color: C.muted }}>{result.plastic}</span>
+                  )}
+                </div>
+                {hasFlightNums && (
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    {[["S", result.speed], ["G", result.glide], ["T", result.turn], ["F", result.fade]].map(([label, val]) =>
+                      val != null ? (
+                        <span key={label} style={{
+                          fontSize: 11, padding: "2px 7px", borderRadius: 6, fontWeight: 600,
+                          background: `${C.brand}15`, border: `1px solid ${C.brand}30`, color: C.brand,
+                        }}>{label}: {val}</span>
+                      ) : null
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-            <p style={{ fontSize: 12, color: C.muted, textAlign: "center", marginBottom: 16 }}>
-              Ser dette rigtigt ud?
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleConfirm} style={{
-                flex: 1, ...btn("primary"),
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+
+            {/* Confidence */}
+            {conf && (
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <span style={{
+                  fontSize: 12, padding: "3px 12px", borderRadius: 999, fontWeight: 600,
+                  background: `${conf.color}18`, border: `1px solid ${conf.color}40`, color: conf.color,
+                }}>{conf.label}</span>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={handleDirectAdd} style={{
+                ...btn("primary"), display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                 border: `1px solid ${C.brand}`,
               }}>
-                <Check size={15}/> Ja, søg efter den
+                <Check size={15}/> Tilføj til min samling
               </button>
-              <button onClick={handleManual} style={{
-                flex: 1, ...btn(),
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              <button onClick={startEditing} style={{
+                ...btn(), display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
               }}>
-                <Search size={15}/> Søg manuelt
+                Rediger før tilføjelse
+              </button>
+              <button onClick={() => onSearchFallback(result.name || "", result.brand || "")} style={{
+                ...btn(), display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: C.muted,
+              }}>
+                <Search size={14}/> Søg manuelt
               </button>
             </div>
+          </div>
+        )}
+
+        {/* editing */}
+        {phase === "editing" && editVals && (
+          <div>
+            {/* Round photo */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+              <div style={{ position: "relative" }}>
+                <img src={editVals.pPhoto || preview} alt="Disc" style={{
+                  width: 80, height: 80, objectFit: "cover", borderRadius: "50%",
+                  border: `2px solid ${C.line}`,
+                }}/>
+                <button onClick={() => editFileRef.current?.click()} style={{
+                  position: "absolute", bottom: 0, right: 0,
+                  width: 26, height: 26, borderRadius: "50%",
+                  background: C.raised, border: `1px solid ${C.line}`,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  color: C.muted, fontSize: 14,
+                }}>✎</button>
+                <input ref={editFileRef} type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={async e => {
+                    const f = e.target.files?.[0];
+                    if (f) { const url = await resizeImage(f, 800); setEditVals(v => ({ ...v, pPhoto: url })); }
+                  }}/>
+              </div>
+            </div>
+
+            {/* Name + brand */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
+                Navn *
+                <input value={editVals.name} onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))} style={inp}/>
+              </label>
+              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
+                Mærke *
+                <input value={editVals.brand} onChange={e => setEditVals(v => ({ ...v, brand: e.target.value }))} style={inp}/>
+              </label>
+            </div>
+
+            {/* Type */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ ...lbl, marginBottom: 6 }}>Type</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {TYPES.map(t => (
+                  <button key={t} onClick={() => setEditVals(v => ({ ...v, type: t }))} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 999, cursor: "pointer", fontSize: 11, fontWeight: 500,
+                    border: `1px solid ${editVals.type === t ? C.brand : C.line}`,
+                    background: editVals.type === t ? `${C.brand}15` : "transparent",
+                    color: editVals.type === t ? C.brand : C.muted,
+                  }}>{t}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Flight numbers */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+              {[["Speed", "speed"], ["Glide", "glide"], ["Turn", "turn"], ["Fade", "fade"]].map(([label, key]) => (
+                <label key={key} style={{ display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
+                  {label}
+                  <input type="number" inputMode="decimal" value={editVals[key]}
+                    onChange={e => setEditVals(v => ({ ...v, [key]: e.target.value }))}
+                    style={{ ...inp, textAlign: "center" }}/>
+                </label>
+              ))}
+            </div>
+
+            {/* Plastic */}
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12, ...lbl }}>
+              Plasttype
+              <input value={editVals.pPlastic}
+                onChange={e => setEditVals(v => ({ ...v, pPlastic: e.target.value }))}
+                placeholder="Star, ESP, Swirl S-Line…" style={inp}/>
+            </label>
+
+            {/* Color palette */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ ...lbl, marginBottom: 8 }}>Farve</div>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+                {DISC_COLORS.map(c => (
+                  <button key={c} onClick={() => setEditVals(v => ({ ...v, pColor: c }))} style={{
+                    width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", padding: 0,
+                    border: editVals.pColor === c ? `3px solid ${C.text}` : "2px solid transparent",
+                    boxShadow: editVals.pColor === c ? `0 0 0 1px ${c}` : "none",
+                  }}/>
+                ))}
+                {editVals.pColor && !DISC_COLORS.includes(editVals.pColor) && (
+                  <button style={{
+                    width: 28, height: 28, borderRadius: "50%", padding: 0, cursor: "default",
+                    background: editVals.pColor, border: `3px solid ${C.text}`,
+                    boxShadow: `0 0 0 1px ${editVals.pColor}`,
+                  }}/>
+                )}
+                {editVals.pColor && (
+                  <button onClick={() => setEditVals(v => ({ ...v, pColor: "" }))} style={{
+                    width: 28, height: 28, borderRadius: "50%", cursor: "pointer", padding: 0,
+                    border: `1px solid ${C.line}`, background: "transparent", color: C.muted,
+                    fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>×</button>
+                )}
+              </div>
+            </div>
+
+            <button onClick={handleEditConfirm}
+              disabled={!editVals.name.trim() || !editVals.brand.trim()} style={{
+              width: "100%", ...btn("primary"),
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              border: `1px solid ${C.brand}`,
+              opacity: editVals.name.trim() && editVals.brand.trim() ? 1 : 0.45,
+            }}>
+              <Check size={15}/> Tilføj til min samling
+            </button>
           </div>
         )}
 
@@ -208,10 +400,8 @@ Hvis du ikke kan identificere disc'en svar med:
           <div style={{ textAlign: "center" }}>
             <p style={{ color: C.distance, fontSize: 14, marginBottom: 20 }}>{errorMsg}</p>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button onClick={() => { setPhase("idle"); setPreview(null); }} style={btn()}>
-                Prøv igen
-              </button>
-              <button onClick={() => onFound("", "")} style={{ ...btn("primary"), border: `1px solid ${C.brand}` }}>
+              <button onClick={() => { setPhase("idle"); setPreview(null); }} style={btn()}>Prøv igen</button>
+              <button onClick={() => onSearchFallback("", "")} style={{ ...btn("primary"), border: `1px solid ${C.brand}` }}>
                 Manuel søgning
               </button>
             </div>

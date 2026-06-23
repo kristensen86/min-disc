@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark, Share2, Camera } from "lucide-react";
 import { supabase, setUser } from "./supabase";
-import { C, TYPE_COLOR, TYPES, FALLBACK } from "./constants";
+import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
 import { store } from "./store";
 import { iconBtn, btn, secHdr, Empty } from "./components/ui";
@@ -45,7 +45,6 @@ export default function App() {
   const [soldHistory, setSoldHistory] = useState([]);
   const [customDiscs, setCustomDiscs] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
   const [showDbScanner, setShowDbScanner] = useState(false);
   const [ownedQuery, setOwnedQuery] = useState("");
   const [sharedBag, setSharedBag] = useState(() => {
@@ -484,7 +483,48 @@ export default function App() {
             {showDbScanner && (
               <DiscScanner
                 allDiscs={allDiscs}
-                onFound={(name, brand) => { const q = [name, brand].filter(Boolean).join(" "); setQuery(q); setVisible(40); setShowDbScanner(false); }}
+                onDirectAdd={(result, previewUrl) => {
+                  const nameLow = (result.name || "").toLowerCase();
+                  const brandLow = (result.brand || "").toLowerCase();
+                  const match = allDiscs.find(d =>
+                    d.name.toLowerCase() === nameLow && (!brandLow || d.brand.toLowerCase() === brandLow)
+                  );
+                  const newUid = genId();
+                  const overrideData = {
+                    ...(result.plastic && { pPlastic: result.plastic }),
+                    ...(result.colorHex && { pColor: result.colorHex }),
+                    ...(previewUrl && { pPhoto: previewUrl }),
+                  };
+                  if (match) {
+                    setOwned(o => [...o, { uid: newUid, discId: match.id }]);
+                  } else {
+                    const type = result.type || (result.speed ? typeFromSpeed(Number(result.speed)) : "Distance");
+                    const t = Number(result.turn) || 0, f = Number(result.fade) || 2;
+                    const s = f - t;
+                    const stability = s <= -3 ? "Very Understable" : s <= -1 ? "Understable" : s <= 1 ? "Stable" : s <= 3 ? "Overstable" : "Very Overstable";
+                    const customDisc = {
+                      id: "custom_" + genId(),
+                      name: result.name || "Ukendt disc",
+                      brand: result.brand || "Ukendt",
+                      type, stability, isCustom: true,
+                      speed: Number(result.speed) || 7,
+                      glide: Number(result.glide) || 5,
+                      turn: t, fade: f,
+                    };
+                    setCustomDiscs(c => [...c, customDisc]);
+                    setAllDiscs(d => [...d, customDisc]);
+                    setOwned(o => [...o, { uid: newUid, discId: customDisc.id }]);
+                  }
+                  if (Object.keys(overrideData).length > 0) {
+                    setOverrides(prev => ({ ...prev, [newUid]: overrideData }));
+                  }
+                  setShowDbScanner(false);
+                }}
+                onSearchFallback={(name, brand) => {
+                  setQuery([name, brand].filter(Boolean).join(" "));
+                  setVisible(40);
+                  setShowDbScanner(false);
+                }}
                 onClose={() => setShowDbScanner(false)}/>
             )}
             <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
@@ -559,14 +599,7 @@ export default function App() {
                 placeholder="Søg i mine discs…"
                 style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
               {ownedQuery && <button onClick={() => setOwnedQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
-              <button onClick={() => setShowScanner(true)} aria-label="Scan disc" style={iconBtn(C.muted)}><Camera size={16}/></button>
             </div>
-            {showScanner && (
-              <DiscScanner
-                allDiscs={allDiscs}
-                onFound={(name, brand) => { setOwnedQuery(name + (brand ? " " + brand : "")); setShowScanner(false); }}
-                onClose={() => setShowScanner(false)}/>
-            )}
 
             {ownedDiscs.length === 0 ? (
               <Empty text="Du ejer ingen discs endnu. Gå til Søg og tilføj dem du har."/>

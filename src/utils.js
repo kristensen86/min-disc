@@ -48,6 +48,15 @@ export function resolveDisc(disc,overrides){
   return ov?{...disc,...ov}:disc;
 }
 
+export function computeStability(turn, fade) {
+  const s = Number(fade) - Number(turn);
+  if (s <= -3) return "Very Understable";
+  if (s <= -1) return "Understable";
+  if (s <= 1) return "Stable";
+  if (s <= 3) return "Overstable";
+  return "Very Overstable";
+}
+
 export function conditionText(c){
   const n=Number(c);
   if(n<=1)return"Ødelagt";
