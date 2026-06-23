@@ -23,7 +23,7 @@ function cropDisc(dataUrl, discPos) {
         const cx = (centerX / 100) * img.width;
         const cy = (centerY / 100) * img.height;
         const r  = (radius  / 100) * img.width;
-        const side = r * 2.4; // padding around disc
+        const side = r * 2 - 2; // 1px inside disc edge, no air
 
         const size = 400;
         const canvas = document.createElement("canvas");
