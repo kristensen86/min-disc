@@ -48,7 +48,7 @@ export default function App() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDbScanner, setShowDbScanner] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
-  const [showBagsFlightOverview, setShowBagsFlightOverview] = useState(false);
+  const [bagsFlightSourceKey, setBagsFlightSourceKey] = useState("owned");
   const [bagsFlightSelected, setBagsFlightSelected] = useState(null);
   const [ownedQuery, setOwnedQuery] = useState("");
   const [sharedBag, setSharedBag] = useState(() => {
@@ -649,28 +649,55 @@ export default function App() {
               onEditDisc={openEditForDisc}/>
           ) : (
             <div>
-              {/* Flight: Mine discs toggle */}
+              {/* Flight — source selector + matrix */}
               {!showGenerator && !showCompare && (
-                <>
-                  <button onClick={() => setShowBagsFlightOverview(v => !v)} style={{
-                    width: "100%", padding: "10px 0", borderRadius: 10, cursor: "pointer",
-                    fontSize: 13, fontWeight: 600, marginBottom: 12,
-                    border: `1px solid ${showBagsFlightOverview ? C.brand : C.line}`,
-                    background: showBagsFlightOverview ? `${C.brand}15` : "transparent",
-                    color: showBagsFlightOverview ? C.brand : C.muted,
-                  }}>
-                    ✈ Flight: Mine discs {showBagsFlightOverview ? "▲" : "▼"}
-                  </button>
-                  {showBagsFlightOverview && (
-                    <div style={{ margin: "0 -16px", marginBottom: 16 }}>
-                      <FlightMatrix
-                        discs={resolvedOwned}
-                        selectedId={bagsFlightSelected}
-                        onSelect={setBagsFlightSelected}
-                      />
-                    </div>
-                  )}
-                </>
+                <div style={{ marginBottom: 16 }}>
+                  {/* Row: dropdown + del */}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 0 }}>
+                    <select
+                      value={bagsFlightSourceKey}
+                      onChange={e => { setBagsFlightSourceKey(e.target.value); setBagsFlightSelected(null); }}
+                      style={{
+                        flex: 1, padding: "10px 13px", background: C.surface,
+                        border: `1px solid ${C.line}`, borderRadius: 12,
+                        color: C.text, fontSize: 14, cursor: "pointer", outline: "none",
+                      }}>
+                      <option value="owned" style={{ background: C.surface }}>Mine discs (alle)</option>
+                      {bags.length > 0 && <option disabled style={{ background: C.surface, color: C.muted }}>──────────</option>}
+                      {bags.map(b => (
+                        <option key={b.id} value={"bag:" + b.id} style={{ background: C.surface }}>{b.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        if (bagsFlightSourceKey === "owned") shareApp();
+                        else { const b = bags.find(b => "bag:" + b.id === bagsFlightSourceKey); if (b) shareBag(b); }
+                      }}
+                      aria-label="Del"
+                      style={{
+                        width: 42, height: 42, flexShrink: 0, borderRadius: 12, cursor: "pointer",
+                        background: C.surface, border: `1px solid ${C.line}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: C.muted,
+                      }}>
+                      <Share2 size={16}/>
+                    </button>
+                  </div>
+                  {/* Flight matrix */}
+                  <div style={{ margin: "0 -16px" }}>
+                    <FlightMatrix
+                      discs={
+                        bagsFlightSourceKey === "owned"
+                          ? resolvedOwned
+                          : (bags.find(b => "bag:" + b.id === bagsFlightSourceKey)?.bagEntries || [])
+                              .map(e => { const od = ownedDiscs.find(od => od.uid === e.instanceId); return od ? resolveDisc(od, overrides) : null; })
+                              .filter(Boolean)
+                      }
+                      selectedId={bagsFlightSelected}
+                      onSelect={setBagsFlightSelected}
+                    />
+                  </div>
+                </div>
               )}
 
               {/* Mine bags / Sammenlign toggle */}
