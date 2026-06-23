@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark, Share2 } from "lucide-react";
+import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark, Share2, Camera } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
@@ -15,6 +15,7 @@ import { StatsPanel } from "./components/StatsPanel";
 import { BagComparison } from "./components/BagComparison";
 import { SalePanel } from "./components/SalePanel";
 import { CreateDiscForm } from "./components/CreateDiscForm";
+import { DiscScanner } from "./components/DiscScanner";
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -44,6 +45,7 @@ export default function App() {
   const [soldHistory, setSoldHistory] = useState([]);
   const [customDiscs, setCustomDiscs] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [ownedQuery, setOwnedQuery] = useState("");
   const [sharedBag, setSharedBag] = useState(() => {
     try { const p = new URLSearchParams(window.location.search).get("bag"); return p ? decodeBag(p) : null; }
@@ -542,7 +544,14 @@ export default function App() {
                 placeholder="Søg i mine discs…"
                 style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
               {ownedQuery && <button onClick={() => setOwnedQuery("")} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
+              <button onClick={() => setShowScanner(true)} aria-label="Scan disc" style={iconBtn(C.muted)}><Camera size={16}/></button>
             </div>
+            {showScanner && (
+              <DiscScanner
+                allDiscs={allDiscs}
+                onFound={(name, brand) => { setOwnedQuery(name + (brand ? " " + brand : "")); setShowScanner(false); }}
+                onClose={() => setShowScanner(false)}/>
+            )}
 
             {ownedDiscs.length === 0 ? (
               <Empty text="Du ejer ingen discs endnu. Gå til Søg og tilføj dem du har."/>
