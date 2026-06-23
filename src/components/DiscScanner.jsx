@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, Camera, Check, Search, Loader, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage } from "../utils";
@@ -13,33 +13,53 @@ const CONF = {
 };
 
 export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }) {
-  const [phase, setPhase] = useState("idle"); // idle | scanning | confirm | editing | error
+  const [phase, setPhase] = useState("idle"); // idle | camera | scanning | confirm | editing | error
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const inputRef = useRef();
   const editFileRef = useRef();
+  const videoRef = useRef();
+  const streamRef = useRef(null);
 
-  async function handleFile(file) {
-    if (!file) return;
-    setPhase("scanning");
-    setErrorMsg("");
+  function stopStream() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+  }
 
-    let base64, dataUrl;
-    try {
-      dataUrl = await resizeImage(file, 800);
-      base64 = dataUrl.split(",")[1];
-      setPreview(dataUrl);
-    } catch {
-      setPhase("error");
-      setErrorMsg("Kunne ikke læse billedet.");
+  // Attach stream to video element after camera phase renders
+  useEffect(() => {
+    if (phase === "camera" && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [phase]);
+
+  // Stop stream on unmount
+  useEffect(() => () => stopStream(), []);
+
+  async function openCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      inputRef.current?.click();
       return;
     }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+      setPhase("camera");
+    } catch {
+      // Permission denied or unsupported — fall back to file input
+      inputRef.current?.click();
+    }
+  }
 
+  async function analyzeBase64(base64) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
-
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         signal: controller.signal,
@@ -72,20 +92,17 @@ Svar KUN med JSON, ingen forklaring.` },
         }),
       });
       clearTimeout(timeout);
-
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
       const text = data.content?.[0]?.text || "";
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Ugyldigt svar");
       const parsed = JSON.parse(jsonMatch[0]);
-
       if (parsed.error) {
         setPhase("error");
         setErrorMsg("Kunne ikke genkende disc'en. Prøv manuel søgning.");
         return;
       }
-
       setResult(parsed);
       setPhase("confirm");
     } catch (e) {
@@ -93,6 +110,43 @@ Svar KUN med JSON, ingen forklaring.` },
       setPhase("error");
       setErrorMsg(e.name === "AbortError" ? "Timeout — prøv manuel søgning." : "Kunne ikke genkende disc'en. Prøv manuel søgning.");
     }
+  }
+
+  async function captureAndAnalyze() {
+    const video = videoRef.current;
+    if (!video) return;
+    setPhase("scanning");
+
+    const size = 800;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const side = Math.min(vw, vh);
+    const sx = (vw - side) / 2, sy = (vh - side) / 2;
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    stopStream();
+    setPreview(dataUrl);
+    await analyzeBase64(dataUrl.split(",")[1]);
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    setPhase("scanning");
+    setErrorMsg("");
+    let dataUrl;
+    try {
+      dataUrl = await resizeImage(file, 800);
+      setPreview(dataUrl);
+    } catch {
+      setPhase("error");
+      setErrorMsg("Kunne ikke læse billedet.");
+      return;
+    }
+    await analyzeBase64(dataUrl.split(",")[1]);
   }
 
   function startEditing() {
@@ -112,9 +166,7 @@ Svar KUN med JSON, ingen forklaring.` },
     setPhase("editing");
   }
 
-  function handleDirectAdd() {
-    onDirectAdd(result, preview);
-  }
+  function handleDirectAdd() { onDirectAdd(result, preview); }
 
   function handleEditConfirm() {
     onDirectAdd({
@@ -140,6 +192,67 @@ Svar KUN med JSON, ingen forklaring.` },
   };
   const lbl = { fontSize: 11, color: C.muted, letterSpacing: "0.04em" };
 
+  // ── Camera overlay (full-screen, replaces bottom sheet) ──────────────────
+  if (phase === "camera") {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "#000", overflow: "hidden" }}>
+        {/* Live feed */}
+        <video ref={videoRef} autoPlay playsInline muted style={{
+          position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+        }}/>
+
+        {/* Circular cutout overlay — box-shadow fills outside the circle */}
+        <div style={{
+          position: "absolute",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -58%)",
+          width: 280, height: 280, borderRadius: "50%",
+          border: `2px solid ${C.brand}`,
+          boxShadow: "0 0 0 9999px rgba(0,0,0,0.60)",
+          pointerEvents: "none",
+        }}/>
+
+        {/* Guide text below circle */}
+        <div style={{
+          position: "absolute",
+          top: "calc(42% + 158px)",
+          left: 0, right: 0,
+          textAlign: "center",
+          color: "rgba(255,255,255,0.80)",
+          fontSize: 13,
+          pointerEvents: "none",
+        }}>
+          Placer disc inden for cirklen
+        </div>
+
+        {/* Cancel – top left */}
+        <button onClick={() => { stopStream(); setPhase("idle"); }} style={{
+          position: "absolute", top: 20, left: 20,
+          display: "flex", alignItems: "center", gap: 6,
+          background: "rgba(0,0,0,0.50)", border: "none",
+          color: "#fff", padding: "9px 16px", borderRadius: 12,
+          cursor: "pointer", fontSize: 14, fontWeight: 500,
+        }}>
+          <X size={15}/> Annullér
+        </button>
+
+        {/* Capture button – bottom center */}
+        <button onClick={captureAndAnalyze} aria-label="Tag billede" style={{
+          position: "absolute", bottom: 52, left: "50%",
+          transform: "translateX(-50%)",
+          width: 72, height: 72, borderRadius: "50%",
+          background: C.brand, border: "4px solid rgba(255,255,255,0.35)",
+          cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: `0 0 24px ${C.brand}60`,
+        }}>
+          <Camera size={26} color="#000"/>
+        </button>
+      </div>
+    );
+  }
+
+  // ── Bottom sheet (all other phases) ─────────────────────────────────────
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 200,
@@ -175,10 +288,11 @@ Svar KUN med JSON, ingen forklaring.` },
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>
               Tag et billede af din disc, og Claude Vision identificerer den automatisk.
             </p>
+            {/* Fallback for browsers without getUserMedia */}
             <input ref={inputRef} type="file" accept="image/*" capture="environment"
               style={{ display: "none" }}
               onChange={e => handleFile(e.target.files?.[0])}/>
-            <button onClick={() => inputRef.current?.click()} style={{
+            <button onClick={openCamera} style={{
               ...btn("primary"), display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 24px",
             }}>
               <Camera size={16}/> Åbn kamera
@@ -206,7 +320,6 @@ Svar KUN med JSON, ingen forklaring.` },
         {/* confirm */}
         {phase === "confirm" && result && (
           <div>
-            {/* Disc card */}
             <div style={{
               display: "flex", gap: 14, alignItems: "center",
               background: C.raised, border: `1px solid ${C.line}`,
@@ -222,9 +335,7 @@ Svar KUN med JSON, ingen forklaring.` },
                 <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 2 }}>
                   {result.name || "Ukendt disc"}
                 </div>
-                <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>
-                  {result.brand || ""}
-                </div>
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>{result.brand || ""}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 6 }}>
                   {result.colorHex && (
                     <span style={{
@@ -232,9 +343,7 @@ Svar KUN med JSON, ingen forklaring.` },
                       background: result.colorHex, boxShadow: `0 0 6px ${result.colorHex}80`,
                     }}/>
                   )}
-                  {result.plastic && (
-                    <span style={{ fontSize: 12, color: C.muted }}>{result.plastic}</span>
-                  )}
+                  {result.plastic && <span style={{ fontSize: 12, color: C.muted }}>{result.plastic}</span>}
                 </div>
                 {hasFlightNums && (
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -251,7 +360,6 @@ Svar KUN med JSON, ingen forklaring.` },
               </div>
             </div>
 
-            {/* Confidence */}
             {conf && (
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <span style={{
@@ -261,7 +369,6 @@ Svar KUN med JSON, ingen forklaring.` },
               </div>
             )}
 
-            {/* Buttons */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <button onClick={handleDirectAdd} style={{
                 ...btn("primary"), display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -286,12 +393,10 @@ Svar KUN med JSON, ingen forklaring.` },
         {/* editing */}
         {phase === "editing" && editVals && (
           <div>
-            {/* Round photo */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
               <div style={{ position: "relative" }}>
                 <img src={editVals.pPhoto || preview} alt="Disc" style={{
-                  width: 80, height: 80, objectFit: "cover", borderRadius: "50%",
-                  border: `2px solid ${C.line}`,
+                  width: 80, height: 80, objectFit: "cover", borderRadius: "50%", border: `2px solid ${C.line}`,
                 }}/>
                 <button onClick={() => editFileRef.current?.click()} style={{
                   position: "absolute", bottom: 0, right: 0,
@@ -308,7 +413,6 @@ Svar KUN med JSON, ingen forklaring.` },
               </div>
             </div>
 
-            {/* Name + brand */}
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
                 Navn *
@@ -320,7 +424,6 @@ Svar KUN med JSON, ingen forklaring.` },
               </label>
             </div>
 
-            {/* Type */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ ...lbl, marginBottom: 6 }}>Type</div>
               <div style={{ display: "flex", gap: 6 }}>
@@ -335,7 +438,6 @@ Svar KUN med JSON, ingen forklaring.` },
               </div>
             </div>
 
-            {/* Flight numbers */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
               {[["Speed", "speed"], ["Glide", "glide"], ["Turn", "turn"], ["Fade", "fade"]].map(([label, key]) => (
                 <label key={key} style={{ display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
@@ -347,7 +449,6 @@ Svar KUN med JSON, ingen forklaring.` },
               ))}
             </div>
 
-            {/* Plastic */}
             <label style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12, ...lbl }}>
               Plasttype
               <input value={editVals.pPlastic}
@@ -355,7 +456,6 @@ Svar KUN med JSON, ingen forklaring.` },
                 placeholder="Star, ESP, Swirl S-Line…" style={inp}/>
             </label>
 
-            {/* Color palette */}
             <div style={{ marginBottom: 18 }}>
               <div style={{ ...lbl, marginBottom: 8 }}>Farve</div>
               <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
