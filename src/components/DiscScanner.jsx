@@ -12,18 +12,73 @@ const CONF = {
   low:    { label: "Lav sikkerhed", color: C.distance },
 };
 
+// Crop a circular disc photo from the image using canvas.
+// discPos: { centerX, centerY, radius } — all as % of image width/height/width
+function cropDisc(dataUrl, discPos) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const { centerX, centerY, radius } = discPos;
+        const cx = (centerX / 100) * img.width;
+        const cy = (centerY / 100) * img.height;
+        const r  = (radius  / 100) * img.width;
+        const side = r * 2.4; // padding around disc
+
+        const size = 400;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        // Circular clip — transparent outside the circle
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.clip();
+
+        ctx.drawImage(
+          img,
+          cx - side / 2, cy - side / 2, side, side,
+          0, 0, size, size,
+        );
+
+        resolve(canvas.toDataURL("image/png"));
+      } catch (e) { reject(e); }
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
 export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }) {
   const [phase, setPhase] = useState("idle"); // idle | scanning | confirm | editing | error
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState(null);   // shown in scanning (original) then confirm (cropped)
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const inputRef = useRef();
   const editFileRef = useRef();
 
-  async function analyzeBase64(base64) {
+  async function handleFile(file) {
+    if (!file) return;
+    setErrorMsg("");
+
+    let dataUrl;
+    try {
+      dataUrl = await resizeImage(file, 800);
+    } catch {
+      setPhase("error");
+      setErrorMsg("Kunne ikke læse billedet.");
+      return;
+    }
+
+    // Show original image (dimmed) while API works
+    setPreview(dataUrl);
+    setPhase("scanning");
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         signal: controller.signal,
@@ -36,37 +91,60 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
         },
         body: JSON.stringify({
           model: "claude-opus-4-6",
-          max_tokens: 512,
+          max_tokens: 768,
           messages: [{
             role: "user",
             content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrl.split(",")[1] } },
               { type: "text", text: `Dette er et billede af en disc golf disc.
-Identificér så præcist som muligt:
-- name: disc mold navn (fx MD4, Zone, Destroyer)
-- brand: mærke (fx Discmania, Discraft, Innova)
-- plastic: plasttype og evt. edition synlig på disc (fx Swirl S-Line, Big Z, Star, Champion)
-- color: farve på dansk (fx orange, lyserød, gul, hvid)
-- colorHex: nærmeste hex-farvekode baseret på disc farven
-- speed, glide, turn, fade: hvis du kender disse tal for denne disc mold
-- confidence: high hvis du er sikker, medium hvis nogenlunde sikker, low hvis usikker
-Svar KUN med JSON, ingen forklaring.` },
+Udfør to opgaver og svar med JSON:
+
+1. IDENTIFICER DISC:
+   name, brand, plastic, color, colorHex, speed, glide, turn, fade, confidence
+
+2. FIND DISC POSITION:
+   Find den runde disc i billedet og returner:
+   centerX: disc centrum X som procent af billedbredde (0-100)
+   centerY: disc centrum Y som procent af billedhøjde (0-100)
+   radius: disc radius som procent af billedbredde (0-100)
+   Hvis disc ikke kan lokaliseres, sæt disc til null.
+
+Svar KUN med JSON:
+{
+  "name": "...", "brand": "...", "plastic": "...", "color": "...", "colorHex": "...",
+  "speed": null, "glide": null, "turn": null, "fade": null, "confidence": "high/medium/low",
+  "disc": { "centerX": 50, "centerY": 50, "radius": 35 }
+}` },
             ],
           }],
         }),
       });
       clearTimeout(timeout);
+
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
       const text = data.content?.[0]?.text || "";
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Ugyldigt svar");
       const parsed = JSON.parse(jsonMatch[0]);
+
       if (parsed.error) {
         setPhase("error");
         setErrorMsg("Kunne ikke genkende disc'en. Prøv manuel søgning.");
         return;
       }
+
+      // Auto-crop if disc position was found
+      let finalPreview = dataUrl;
+      if (parsed.disc) {
+        try {
+          finalPreview = await cropDisc(dataUrl, parsed.disc);
+        } catch {
+          // Crop failed — fall back to original image
+        }
+      }
+
+      setPreview(finalPreview);
       setResult(parsed);
       setPhase("confirm");
     } catch (e) {
@@ -74,22 +152,6 @@ Svar KUN med JSON, ingen forklaring.` },
       setPhase("error");
       setErrorMsg(e.name === "AbortError" ? "Timeout — prøv manuel søgning." : "Kunne ikke genkende disc'en. Prøv manuel søgning.");
     }
-  }
-
-  async function handleFile(file) {
-    if (!file) return;
-    setPhase("scanning");
-    setErrorMsg("");
-    let dataUrl;
-    try {
-      dataUrl = await resizeImage(file, 800);
-      setPreview(dataUrl);
-    } catch {
-      setPhase("error");
-      setErrorMsg("Kunne ikke læse billedet.");
-      return;
-    }
-    await analyzeBase64(dataUrl.split(",")[1]);
   }
 
   function startEditing() {
@@ -168,7 +230,7 @@ Svar KUN med JSON, ingen forklaring.` },
         {phase === "idle" && (
           <div style={{ textAlign: "center" }}>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.6 }}>
-              Tag et billede af din disc, og Claude Vision identificerer den automatisk.
+              Tag et billede af din disc, og Claude Vision identificerer og beskærer den automatisk.
             </p>
             <input ref={inputRef} type="file" accept="image/*" capture="environment"
               style={{ display: "none" }}
@@ -181,18 +243,28 @@ Svar KUN med JSON, ingen forklaring.` },
           </div>
         )}
 
-        {/* scanning */}
+        {/* scanning — dimmed original with spinner overlay */}
         {phase === "scanning" && (
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            {preview && (
-              <img src={preview} alt="Preview" style={{
-                width: 80, height: 80, objectFit: "cover", borderRadius: "50%",
-                border: `2px solid ${C.line}`, marginBottom: 16,
-              }}/>
-            )}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: C.muted, fontSize: 14 }}>
-              <Loader size={16} style={{ animation: "spin 1s linear infinite" }}/>
-              Analyserer disc…
+          <div>
+            <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", marginBottom: 14 }}>
+              {preview && (
+                <img src={preview} alt="" style={{
+                  width: "100%", maxHeight: 240, objectFit: "cover",
+                  display: "block", opacity: 0.35,
+                }}/>
+              )}
+              <div style={{
+                position: preview ? "absolute" : "relative",
+                inset: 0, minHeight: preview ? undefined : 100,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 10,
+              }}>
+                <Loader size={26} color={C.brand} style={{ animation: "spin 1s linear infinite" }}/>
+                <span style={{ color: C.text, fontSize: 13, fontWeight: 500,
+                  textShadow: preview ? "0 1px 4px rgba(0,0,0,0.8)" : "none" }}>
+                  Analyserer disc…
+                </span>
+              </div>
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
@@ -201,6 +273,19 @@ Svar KUN med JSON, ingen forklaring.` },
         {/* confirm */}
         {phase === "confirm" && result && (
           <div>
+            {/* No-disc-found notice */}
+            {!result.disc && (
+              <div style={{
+                fontSize: 12, color: C.muted, textAlign: "center",
+                padding: "6px 12px", marginBottom: 10,
+                background: `${C.brand}0a`, border: `1px solid ${C.line}`,
+                borderRadius: 10,
+              }}>
+                Kunne ikke finde disc automatisk — billedet bruges som det er
+              </div>
+            )}
+
+            {/* Disc card */}
             <div style={{
               display: "flex", gap: 14, alignItems: "center",
               background: C.raised, border: `1px solid ${C.line}`,
