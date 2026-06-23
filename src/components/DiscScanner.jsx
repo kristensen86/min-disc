@@ -19,6 +19,8 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomMin, setZoomMin] = useState(1);
+  const [zoomMax, setZoomMax] = useState(5);
   const [zoomSupported, setZoomSupported] = useState(false);
   const inputRef = useRef();
   const editFileRef = useRef();
@@ -44,6 +46,12 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   // Stop stream on unmount
   useEffect(() => () => stopStream(), []);
 
+  async function applyZoom(track, value) {
+    // Try both constraint formats — different browsers/devices expect different forms
+    try { await track.applyConstraints({ advanced: [{ zoom: value }] }); return; } catch {}
+    try { await track.applyConstraints({ zoom: value }); } catch {}
+  }
+
   async function openCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
       inputRef.current?.click();
@@ -55,20 +63,28 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
       });
       streamRef.current = stream;
 
-      // Detect zoom support and reset to 1x
       const track = stream.getVideoTracks()[0];
       if (track) {
         trackRef.current = track;
         const caps = track.getCapabilities ? track.getCapabilities() : {};
+
         if (caps.zoom) {
+          // Use actual min from device capabilities — may be < 1 on ultra-wide cameras
+          const min = caps.zoom.min ?? 1;
+          const max = caps.zoom.max ?? 5;
+          setZoomMin(min);
+          setZoomMax(max);
+          setZoomLevel(min);
           setZoomSupported(true);
-          try { await track.applyConstraints({ advanced: [{ zoom: 1 }] }); } catch {}
+          await applyZoom(track, min);
         } else {
           setZoomSupported(false);
+          // Still attempt reset — catches devices that support zoom but
+          // don't surface it via getCapabilities()
+          await applyZoom(track, 1);
         }
       }
 
-      setZoomLevel(1);
       setPhase("camera");
     } catch {
       // Permission denied or unsupported — fall back to file input
@@ -80,7 +96,7 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
     setZoomLevel(value);
     const track = trackRef.current;
     if (!track) return;
-    try { await track.applyConstraints({ advanced: [{ zoom: value }] }); } catch {}
+    await applyZoom(track, value);
   }
 
   async function analyzeBase64(base64) {
@@ -272,7 +288,7 @@ Svar KUN med JSON, ingen forklaring.` },
             width: "min(260px, 75%)",
           }}>
             <ZoomOut size={15} color="rgba(255,255,255,0.65)"/>
-            <input type="range" min={1} max={5} step={0.1}
+            <input type="range" min={zoomMin} max={zoomMax} step={0.1}
               value={zoomLevel}
               onChange={e => handleZoomChange(Number(e.target.value))}
               style={{ flex: 1, accentColor: C.brand, cursor: "pointer" }}/>
