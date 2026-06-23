@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { X, Camera, Check, Search, Loader, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
-import { resizeImage } from "../utils";
-import { btn } from "./ui";
+import { resizeImage, conditionText, suggestSalePrices } from "../utils";
+import { btn, miniBtn } from "./ui";
+import { ImageCropper } from "./ImageCropper";
 
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
@@ -56,8 +57,8 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
+  const [cropperSrc, setCropperSrc] = useState(null);
   const inputRef = useRef();
-  const editFileRef = useRef();
 
   async function handleFile(file) {
     if (!file) return;
@@ -167,6 +168,14 @@ Svar KUN med JSON:
       pPlastic: result.plastic || "",
       pColor: result.colorHex || "",
       pPhoto: preview || "",
+      pWeight: "",
+      pNote: "",
+      forSale: false,
+      condition: 8,
+      hasInk: false,
+      saleMP: "",
+      saleBIN: "",
+      saleNote: "",
     });
     setPhase("editing");
   }
@@ -184,6 +193,14 @@ Svar KUN med JSON:
       fade: Number(editVals.fade),
       plastic: editVals.pPlastic,
       colorHex: editVals.pColor,
+      pWeight: editVals.pWeight ? Number(editVals.pWeight) : null,
+      pNote: editVals.pNote || null,
+      forSale: editVals.forSale,
+      condition: editVals.condition,
+      hasInk: editVals.hasInk,
+      saleMP: editVals.saleMP,
+      saleBIN: editVals.saleBIN,
+      saleNote: editVals.saleNote,
     }, editVals.pPhoto);
   }
 
@@ -196,6 +213,10 @@ Svar KUN med JSON:
     color: C.text, fontSize: 13, width: "100%", outline: "none", boxSizing: "border-box",
   };
   const lbl = { fontSize: 11, color: C.muted, letterSpacing: "0.04em" };
+  const secHdr = {
+    fontSize: 11, color: C.muted, fontWeight: 700,
+    letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12,
+  };
 
   return (
     <div style={{
@@ -209,6 +230,15 @@ Svar KUN med JSON:
         borderRadius: "20px 20px 0 0", padding: "24px 20px 36px",
         maxHeight: "90vh", overflowY: "auto",
       }}>
+        {/* ImageCropper overlay for editing photo */}
+        {cropperSrc && (
+          <ImageCropper
+            src={cropperSrc}
+            onSave={dataUrl => { setEditVals(v => ({ ...v, pPhoto: dataUrl })); setCropperSrc(null); }}
+            onCancel={() => setCropperSrc(null)}
+          />
+        )}
+
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           {phase === "editing" ? (
@@ -356,29 +386,10 @@ Svar KUN med JSON:
           </div>
         )}
 
-        {/* editing */}
+        {/* editing — full edit form matching Mine Discs */}
         {phase === "editing" && editVals && (
           <div>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-              <div style={{ position: "relative" }}>
-                <img src={editVals.pPhoto || preview} alt="Disc" style={{
-                  width: 80, height: 80, objectFit: "cover", borderRadius: "50%", border: `2px solid ${C.line}`,
-                }}/>
-                <button onClick={() => editFileRef.current?.click()} style={{
-                  position: "absolute", bottom: 0, right: 0,
-                  width: 26, height: 26, borderRadius: "50%",
-                  background: C.raised, border: `1px solid ${C.line}`,
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  color: C.muted, fontSize: 14,
-                }}>✎</button>
-                <input ref={editFileRef} type="file" accept="image/*" style={{ display: "none" }}
-                  onChange={async e => {
-                    const f = e.target.files?.[0];
-                    if (f) { const url = await resizeImage(f, 800); setEditVals(v => ({ ...v, pPhoto: url })); }
-                  }}/>
-              </div>
-            </div>
-
+            {/* Navn + Mærke */}
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
                 Navn *
@@ -390,7 +401,8 @@ Svar KUN med JSON:
               </label>
             </div>
 
-            <div style={{ marginBottom: 12 }}>
+            {/* Type */}
+            <div style={{ marginBottom: 16 }}>
               <div style={{ ...lbl, marginBottom: 6 }}>Type</div>
               <div style={{ display: "flex", gap: 6 }}>
                 {TYPES.map(t => (
@@ -404,56 +416,190 @@ Svar KUN med JSON:
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-              {[["Speed", "speed"], ["Glide", "glide"], ["Turn", "turn"], ["Fade", "fade"]].map(([label, key]) => (
-                <label key={key} style={{ display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
-                  {label}
-                  <input type="number" inputMode="decimal" value={editVals[key]}
-                    onChange={e => setEditVals(v => ({ ...v, [key]: e.target.value }))}
-                    style={{ ...inp, textAlign: "center" }}/>
-                </label>
-              ))}
+            {/* Flight-tal */}
+            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
+              <div style={secHdr}>Flight-tal</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+                {[["Speed", "speed", 1, 15, 1], ["Glide", "glide", 1, 7, 1], ["Turn", "turn", -5, 1, 0.5], ["Fade", "fade", 0, 5, 0.5]].map(([label, key, min, max, step]) => (
+                  <label key={key} style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl }}>
+                    {label}
+                    <input type="number" inputMode="decimal" value={editVals[key]} min={min} max={max} step={step}
+                      onChange={e => setEditVals(v => ({ ...v, [key]: Number(e.target.value) }))}
+                      style={{ ...inp, textAlign: "center" }}/>
+                    <span style={{ fontSize: 10, color: C.line, textAlign: "center" }}>std: {result[key] ?? "—"}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12, ...lbl }}>
-              Plasttype
-              <input value={editVals.pPlastic}
-                onChange={e => setEditVals(v => ({ ...v, pPlastic: e.target.value }))}
-                placeholder="Star, ESP, Swirl S-Line…" style={inp}/>
-            </label>
+            {/* Mine oplysninger */}
+            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
+              <div style={secHdr}>Mine oplysninger</div>
 
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ ...lbl, marginBottom: 8 }}>Farve</div>
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-                {DISC_COLORS.map(c => (
-                  <button key={c} onClick={() => setEditVals(v => ({ ...v, pColor: c }))} style={{
-                    width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", padding: 0,
-                    border: editVals.pColor === c ? `3px solid ${C.text}` : "2px solid transparent",
-                    boxShadow: editVals.pColor === c ? `0 0 0 1px ${c}` : "none",
-                  }}/>
-                ))}
-                {editVals.pColor && !DISC_COLORS.includes(editVals.pColor) && (
-                  <button style={{
-                    width: 28, height: 28, borderRadius: "50%", padding: 0, cursor: "default",
-                    background: editVals.pColor, border: `3px solid ${C.text}`,
-                    boxShadow: `0 0 0 1px ${editVals.pColor}`,
-                  }}/>
-                )}
-                {editVals.pColor && (
-                  <button onClick={() => setEditVals(v => ({ ...v, pColor: "" }))} style={{
-                    width: 28, height: 28, borderRadius: "50%", cursor: "pointer", padding: 0,
-                    border: `1px solid ${C.line}`, background: "transparent", color: C.muted,
-                    fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>×</button>
+              {/* Foto */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...lbl, marginBottom: 6 }}>Foto</div>
+                {editVals.pPhoto ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <img src={editVals.pPhoto} alt="disc" style={{
+                      width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: `1px solid ${C.line}`,
+                    }}/>
+                    <label style={{ cursor: "pointer" }}>
+                      <div style={{ ...miniBtn(C.muted), display: "inline-flex", alignItems: "center", gap: 6 }}>✎ Skift</div>
+                      <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) { setCropperSrc(URL.createObjectURL(f)); e.target.value = ""; } }}/>
+                    </label>
+                    <button onClick={() => setEditVals(v => ({ ...v, pPhoto: null }))} style={miniBtn(C.distance)}>Fjern</button>
+                  </div>
+                ) : (
+                  <label style={{ cursor: "pointer" }}>
+                    <div style={{ ...miniBtn(C.muted), display: "inline-flex", alignItems: "center", gap: 6 }}>📷 Upload foto</div>
+                    <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) { setCropperSrc(URL.createObjectURL(f)); e.target.value = ""; } }}/>
+                  </label>
                 )}
               </div>
+
+              {/* Farve */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ ...lbl, marginBottom: 6 }}>Farve</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  {DISC_COLORS.map(c => (
+                    <button key={c} onClick={() => setEditVals(v => ({ ...v, pColor: c }))} style={{
+                      width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer", padding: 0, flexShrink: 0,
+                      border: editVals.pColor === c ? `2.5px solid ${C.text}` : `1px solid ${C.line}`,
+                    }}/>
+                  ))}
+                  {editVals.pColor && !DISC_COLORS.includes(editVals.pColor) && (
+                    <button style={{
+                      width: 26, height: 26, borderRadius: "50%", padding: 0, cursor: "default", flexShrink: 0,
+                      background: editVals.pColor, border: `2.5px solid ${C.text}`,
+                    }}/>
+                  )}
+                  {editVals.pColor && (
+                    <button onClick={() => setEditVals(v => ({ ...v, pColor: null }))} style={{
+                      width: 26, height: 26, borderRadius: "50%", background: "transparent",
+                      cursor: "pointer", border: `1px dashed ${C.line}`, fontSize: 14, color: C.muted, padding: 0,
+                    }}>✕</button>
+                  )}
+                </div>
+              </div>
+
+              {/* Vægt + Plast */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl, flex: "0 0 80px" }}>
+                  Vægt (g)
+                  <input type="number" inputMode="numeric" value={editVals.pWeight} min={100} max={200}
+                    onChange={e => setEditVals(v => ({ ...v, pWeight: e.target.value }))} placeholder="175" style={inp}/>
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl, flex: 1 }}>
+                  Plast
+                  <input type="text" value={editVals.pPlastic} onChange={e => setEditVals(v => ({ ...v, pPlastic: e.target.value }))}
+                    placeholder="Star, Z Line…" style={inp}/>
+                </label>
+              </div>
+
+              {/* Note */}
+              <label style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl }}>
+                Note
+                <input type="text" value={editVals.pNote} onChange={e => setEditVals(v => ({ ...v, pNote: e.target.value }))}
+                  placeholder="Beat in, skovbag, gave fra…" style={inp}/>
+              </label>
+            </div>
+
+            {/* Til salg */}
+            <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14, marginTop: 12, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editVals.forSale ? 16 : 0 }}>
+                <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>Til salg</div>
+                <button onClick={() => setEditVals(v => ({ ...v, forSale: !v.forSale }))} style={{
+                  padding: "6px 15px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${editVals.forSale ? C.brand : C.line}`,
+                  background: editVals.forSale ? `${C.brand}18` : "transparent",
+                  color: editVals.forSale ? C.brand : C.muted,
+                  letterSpacing: "0.02em",
+                }}>
+                  {editVals.forSale ? "Til salg ✓" : "Ikke til salg"}
+                </button>
+              </div>
+
+              {editVals.forSale && (
+                <>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
+                      <span style={{ color: C.muted }}>Tilstand</span>
+                      <span style={{ color: C.brand, fontWeight: 600 }}>{editVals.condition}/10 — {conditionText(editVals.condition)}</span>
+                    </div>
+                    <input type="range" min={0} max={10} step={1} value={editVals.condition}
+                      onChange={e => setEditVals(v => ({ ...v, condition: Number(e.target.value) }))}
+                      style={{ width: "100%", accentColor: C.brand, cursor: "pointer", display: "block" }}/>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.muted, marginTop: 4 }}>
+                      <span>Ødelagt</span><span>Ny disc</span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ ...lbl, marginBottom: 6 }}>Ink</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[[false, "Uden ink"], [true, "Med ink"]].map(([val, label]) => (
+                        <button key={String(val)} onClick={() => setEditVals(v => ({ ...v, hasInk: val }))} style={{
+                          padding: "6px 14px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 500,
+                          border: `1px solid ${editVals.hasInk === val ? C.brand : C.line}`,
+                          background: editVals.hasInk === val ? `${C.brand}15` : "transparent",
+                          color: editVals.hasInk === val ? C.brand : C.muted,
+                        }}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const suggested = suggestSalePrices({ type: editVals.type, condition: editVals.condition });
+                    const mpError = editVals.saleMP && !editVals.saleBIN;
+                    return (
+                      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl, flex: 1 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>BIN (kr) *</span>
+                            {!editVals.saleBIN && (
+                              <button type="button"
+                                onClick={() => setEditVals(v => ({ ...v, saleBIN: String(suggested.bin), saleMP: String(suggested.mp) }))}
+                                style={{ fontSize: 10, color: C.brand, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                                Foreslået: {suggested.bin}kr
+                              </button>
+                            )}
+                          </div>
+                          <input type="number" inputMode="numeric" value={editVals.saleBIN} min={0}
+                            onChange={e => setEditVals(v => ({ ...v, saleBIN: e.target.value }))}
+                            placeholder={String(suggested.bin)}
+                            style={{ ...inp, border: `1px solid ${mpError ? C.distance : C.line}` }}/>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl, flex: 1 }}>
+                          <span>MP / Mindstepris (kr)</span>
+                          <input type="number" inputMode="numeric" value={editVals.saleMP} min={0}
+                            onChange={e => setEditVals(v => ({ ...v, saleMP: e.target.value }))}
+                            placeholder={editVals.saleBIN ? String(Math.round(Number(editVals.saleBIN) * 0.75)) : String(suggested.mp)}
+                            style={inp} disabled={!editVals.saleBIN}/>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {editVals.saleMP && !editVals.saleBIN && (
+                    <div style={{ fontSize: 11, color: C.distance, marginBottom: 10 }}>MP kræver at BIN også er udfyldt</div>
+                  )}
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl }}>
+                    Note (fx "first run")
+                    <input type="text" value={editVals.saleNote} onChange={e => setEditVals(v => ({ ...v, saleNote: e.target.value }))}
+                      placeholder="first run, mystery boks…" style={inp}/>
+                  </label>
+                </>
+              )}
             </div>
 
             <button onClick={handleEditConfirm}
               disabled={!editVals.name.trim() || !editVals.brand.trim()} style={{
               width: "100%", ...btn("primary"),
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              border: `1px solid ${C.brand}`,
+              border: `1px solid ${C.brand}`, marginTop: 8,
               opacity: editVals.name.trim() && editVals.brand.trim() ? 1 : 0.45,
             }}>
               <Check size={15}/> Tilføj til min samling

@@ -494,6 +494,14 @@ export default function App() {
                     ...(result.plastic && { pPlastic: result.plastic }),
                     ...(result.colorHex && { pColor: result.colorHex }),
                     ...(previewUrl && { pPhoto: previewUrl }),
+                    ...(result.pWeight && { pWeight: result.pWeight }),
+                    ...(result.pNote && { pNote: result.pNote }),
+                    ...(result.forSale && { forSale: result.forSale }),
+                    ...(result.forSale && result.condition != null && { condition: result.condition }),
+                    ...(result.forSale && result.hasInk != null && { hasInk: result.hasInk }),
+                    ...(result.forSale && result.saleMP && { saleMP: result.saleMP }),
+                    ...(result.forSale && result.saleBIN && { saleBIN: result.saleBIN }),
+                    ...(result.forSale && result.saleNote && { saleNote: result.saleNote }),
                   };
                   if (match) {
                     setOwned(o => [...o, { uid: newUid, discId: match.id }]);
