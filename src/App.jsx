@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, Activity, BarChart2, Bookmark, Share2, Camera } from "lucide-react";
+import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, LogOut, Disc3, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
@@ -16,6 +16,7 @@ import { BagComparison } from "./components/BagComparison";
 import { SalePanel } from "./components/SalePanel";
 import { CreateDiscForm } from "./components/CreateDiscForm";
 import { DiscScanner } from "./components/DiscScanner";
+import { OverflowMenu } from "./components/OverflowMenu";
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -46,6 +47,9 @@ export default function App() {
   const [customDiscs, setCustomDiscs] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDbScanner, setShowDbScanner] = useState(false);
+  const [showOverflow, setShowOverflow] = useState(false);
+  const [showBagsFlightOverview, setShowBagsFlightOverview] = useState(false);
+  const [bagsFlightSelected, setBagsFlightSelected] = useState(null);
   const [ownedQuery, setOwnedQuery] = useState("");
   const [sharedBag, setSharedBag] = useState(() => {
     try { const p = new URLSearchParams(window.location.search).get("bag"); return p ? decodeBag(p) : null; }
@@ -415,20 +419,18 @@ export default function App() {
     </div>
   );
 
-  const TABS = [
-    ["db",     "Søg",    Search],
-    ["owned",  "Mine",   Library],
-    ["bags",   "Bags",   Briefcase],
-    ["flight", "Flight", Activity],
-    ["stats",  "Stats",  BarChart2],
-    ["salg",   "Salg",   Tag],
-    ["wish",   "Ønsker", Bookmark],
+  const NAV_TABS = [
+    ["db",    "Søg",  Search],
+    ["owned", "Mine", Library],
+    // FAB (camera) is center slot — not a tab entry
+    ["bags",  "Bags", Briefcase],
+    ["salg",  "Salg", Tag],
   ];
 
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: "100vh", fontFamily: "'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
       <style>{fontStyle}</style>
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 84px" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px calc(84px + env(safe-area-inset-bottom))" }}>
 
         {/* Header */}
         <div style={{ background: `linear-gradient(180deg, ${C.surface} 0%, transparent 100%)`, margin: "0 -16px", padding: "20px 16px 18px", marginBottom: 4 }}>
@@ -466,19 +468,11 @@ export default function App() {
         {/* DATABASE */}
         {tab === "db" && (
           <div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 13px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13 }}>
-                <Search size={17} color={C.muted}/>
-                <input value={query} onChange={e => { setQuery(e.target.value); setVisible(40); }} placeholder="Søg disc eller mærke…"
-                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
-                {query && <button onClick={() => { setQuery(""); setVisible(40); }} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
-              </div>
-              <button onClick={() => setShowDbScanner(true)} aria-label="Scan disc" title="Scan disc med kamera" style={{
-                width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13, cursor: "pointer", color: C.brand,
-              }}>
-                <Camera size={18}/>
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 13px", marginBottom: 12, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 13 }}>
+              <Search size={17} color={C.muted}/>
+              <input value={query} onChange={e => { setQuery(e.target.value); setVisible(40); }} placeholder="Søg disc eller mærke…"
+                style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
+              {query && <button onClick={() => { setQuery(""); setVisible(40); }} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
             </div>
             {showDbScanner && (
               <DiscScanner
@@ -659,6 +653,30 @@ export default function App() {
               onEditDisc={openEditForDisc}/>
           ) : (
             <div>
+              {/* Flight: Mine discs toggle */}
+              {!showGenerator && !showCompare && (
+                <>
+                  <button onClick={() => setShowBagsFlightOverview(v => !v)} style={{
+                    width: "100%", padding: "10px 0", borderRadius: 10, cursor: "pointer",
+                    fontSize: 13, fontWeight: 600, marginBottom: 12,
+                    border: `1px solid ${showBagsFlightOverview ? C.brand : C.line}`,
+                    background: showBagsFlightOverview ? `${C.brand}15` : "transparent",
+                    color: showBagsFlightOverview ? C.brand : C.muted,
+                  }}>
+                    ✈ Flight: Mine discs {showBagsFlightOverview ? "▲" : "▼"}
+                  </button>
+                  {showBagsFlightOverview && (
+                    <div style={{ margin: "0 -16px", marginBottom: 16 }}>
+                      <FlightMatrix
+                        discs={resolvedOwned}
+                        selectedId={bagsFlightSelected}
+                        onSelect={setBagsFlightSelected}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
               {/* Mine bags / Sammenlign toggle */}
               {!showGenerator && (
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
@@ -782,35 +800,91 @@ export default function App() {
 
       </div>
 
+      {/* Overflow menu */}
+      {showOverflow && (
+        <OverflowMenu
+          ownedCount={owned.length}
+          wishCount={wishlist.length}
+          onGoStats={() => { setTab("stats"); setOpenBagId(null); }}
+          onGoWish={() => { setTab("wish"); setOpenBagId(null); }}
+          onShare={shareApp}
+          onClose={() => setShowOverflow(false)}
+        />
+      )}
+
       {/* Fixed bottom navigation */}
       <nav style={{
         position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
-        height: 64,
-        background: `${C.surface}f2`,
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        borderTop: `1px solid ${C.line}`,
-        boxShadow: `0 -4px 24px rgba(0,0,0,0.35)`,
+        overflow: "visible",
       }}>
-        <div style={{ maxWidth: 560, margin: "0 auto", height: "100%", display: "flex" }}>
-          {TABS.map(([key, label, Icon]) => {
+        <div style={{
+          maxWidth: 560, margin: "0 auto",
+          display: "flex", alignItems: "center",
+          height: 64,
+          paddingBottom: "env(safe-area-inset-bottom)",
+          background: "#0a0f0aed",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.5)",
+        }}>
+          {/* Søg + Mine */}
+          {NAV_TABS.slice(0, 2).map(([key, label, Icon]) => {
             const active = tab === key;
-            const badge = key === "salg" ? forSaleDiscs.length : key === "wish" ? wishlist.length : 0;
             return (
-              <button key={key} onClick={() => setTab(key)} style={{
+              <button key={key} onClick={() => { setTab(key); setOpenBagId(null); }} style={{
                 flex: 1, height: "100%", display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 3,
                 background: "transparent", border: "none", cursor: "pointer",
-                padding: "0 2px",
-                color: active ? C.brand : C.muted,
-                position: "relative",
+                color: active ? C.brand : C.muted, position: "relative",
               }}>
                 {active && (
                   <span style={{
-                    position: "absolute", top: 0, left: "15%", right: "15%",
+                    position: "absolute", top: 0, left: "20%", right: "20%",
                     height: 2, borderRadius: "0 0 3px 3px",
-                    background: C.brand,
-                    boxShadow: `0 0 8px ${C.brand}90`,
+                    background: C.brand, boxShadow: `0 0 8px ${C.brand}90`,
+                  }}/>
+                )}
+                <Icon size={22} strokeWidth={active ? 2.2 : 1.8}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1 }}>{label}</span>
+              </button>
+            );
+          })}
+
+          {/* Central FAB — camera */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}>
+            <button
+              onClick={() => setShowDbScanner(true)}
+              aria-label="Scan disc"
+              style={{
+                width: 60, height: 60, borderRadius: "50%", flexShrink: 0,
+                background: "#0a0f0a",
+                border: "2px solid #4ade80",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px #4ade8030",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transform: "translateY(-16px)",
+              }}>
+              <Camera size={26} color="white"/>
+            </button>
+          </div>
+
+          {/* Bags + Salg */}
+          {NAV_TABS.slice(2).map(([key, label, Icon]) => {
+            const active = tab === key;
+            const badge = key === "salg" ? forSaleDiscs.length : 0;
+            return (
+              <button key={key} onClick={() => { setTab(key); }} style={{
+                flex: 1, height: "100%", display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 3,
+                background: "transparent", border: "none", cursor: "pointer",
+                color: active ? C.brand : C.muted, position: "relative",
+              }}>
+                {active && (
+                  <span style={{
+                    position: "absolute", top: 0, left: "20%", right: "20%",
+                    height: 2, borderRadius: "0 0 3px 3px",
+                    background: C.brand, boxShadow: `0 0 8px ${C.brand}90`,
                   }}/>
                 )}
                 <div style={{ position: "relative", lineHeight: 0 }}>
@@ -825,12 +899,45 @@ export default function App() {
                     }}>{badge}</span>
                   )}
                 </div>
-                <span style={{
-                  fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1,
-                }}>{label}</span>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1 }}>{label}</span>
               </button>
             );
           })}
+
+          {/* ••• overflow */}
+          {(() => {
+            const active = tab === "stats" || tab === "wish";
+            const badge = wishlist.length;
+            return (
+              <button onClick={() => setShowOverflow(true)} style={{
+                flex: 1, height: "100%", display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 3,
+                background: "transparent", border: "none", cursor: "pointer",
+                color: active ? C.brand : C.muted, position: "relative",
+              }}>
+                {active && (
+                  <span style={{
+                    position: "absolute", top: 0, left: "20%", right: "20%",
+                    height: 2, borderRadius: "0 0 3px 3px",
+                    background: C.brand, boxShadow: `0 0 8px ${C.brand}90`,
+                  }}/>
+                )}
+                <div style={{ position: "relative", lineHeight: 0 }}>
+                  <MoreHorizontal size={22} strokeWidth={active ? 2.2 : 1.8}/>
+                  {badge > 0 && (
+                    <span style={{
+                      position: "absolute", top: -5, right: -7,
+                      background: C.brand, color: C.bg,
+                      fontSize: 9, fontWeight: 700, lineHeight: 1,
+                      padding: "2px 4px", borderRadius: 999,
+                      minWidth: 16, textAlign: "center",
+                    }}>{badge}</span>
+                  )}
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1 }}>Mere</span>
+              </button>
+            );
+          })()}
         </div>
       </nav>
 
