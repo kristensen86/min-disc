@@ -9198,6 +9198,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=stal&post_type=product"
   },
   {
+    "id": "aca589d2-c26e-5342-9e11-f0204b961e79",
+    "name": "Sten",
+    "brand": "Kastaplast",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 1,
+    "glide": 1,
+    "turn": 0,
+    "fade": 2,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "6a01b395-f3a4-518f-bf8b-86c4a482e892",
     "name": "Stig",
     "brand": "Kastaplast",
@@ -15692,6 +15706,20 @@
     "stability": "Overstable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/8363222.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=giant&post_type=product"
+  },
+  {
+    "id": "8c65ea6b-c841-51be-aa91-2cc634726b8d",
+    "name": "Giant Reborn",
+    "brand": "Westside Discs",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 12,
+    "glide": 6,
+    "turn": -0.5,
+    "fade": 2,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "4e5ed7d9-7d3d-5e5c-89d5-424132498640",
