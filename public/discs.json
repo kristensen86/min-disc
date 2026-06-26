@@ -4494,6 +4494,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=bleak&post_type=product"
   },
   {
+    "id": "d28b2c73-17ad-5d65-9b04-b162c9ae3ef1",
+    "name": "Bologna",
+    "brand": "Doomsday Discs",
+    "category": "Approach Discs",
+    "type": "Putter",
+    "speed": 4,
+    "glide": 3,
+    "turn": 0,
+    "fade": 2.5,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "8c794329-96e8-5fb3-adab-e4a21b083476",
     "name": "Cardiac Arrest",
     "brand": "Doomsday Discs",
