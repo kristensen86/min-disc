@@ -12096,6 +12096,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=catalyst&post_type=product"
   },
   {
+    "id": "7a306fa3-49bf-5899-bb4c-54561d063d2a",
+    "name": "Control",
+    "brand": "MVP",
+    "category": "Hybrid Driver",
+    "type": "Fairway",
+    "speed": 10,
+    "glide": 5,
+    "turn": -0.5,
+    "fade": 2,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "b250c028-7449-55d3-b97c-d7e7a6144e91",
     "name": "Deflector",
     "brand": "MVP",
@@ -14644,16 +14658,16 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=Ascend&post_type=product"
   },
   {
-    "id": "0dc950a3-6910-556b-98a2-b5b6c2c9ef73",
+    "id": "9815d003-3925-5df3-ad52-f064fe2f8e9b",
     "name": "Boost",
     "brand": "Streamline",
-    "category": "Control Driver",
+    "category": "Hybrid Driver",
     "type": "Fairway",
     "speed": 9.5,
     "glide": 4,
     "turn": 0,
     "fade": 2.5,
-    "stability": "Stable",
+    "stability": "Overstable",
     "pic": "",
     "link": ""
   },
