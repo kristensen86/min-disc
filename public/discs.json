@@ -5698,6 +5698,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=screech&post_type=product"
   },
   {
+    "id": "60930516-881e-5985-a5a6-4325e9634361",
+    "name": "Uktena",
+    "brand": "Elevation Disc Golf",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 11,
+    "glide": 5,
+    "turn": -2,
+    "fade": 2,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "aabfaa0b-63f6-58d7-862b-8235bab35538",
     "name": "Agera",
     "brand": "EV-7",
@@ -5708,6 +5722,20 @@
     "turn": -2,
     "fade": 1,
     "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "efd50858-39de-5e4b-94d8-d4e7ebe439f1",
+    "name": "Kairos",
+    "brand": "EV-7",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 12,
+    "glide": 5,
+    "turn": -1,
+    "fade": 3,
+    "stability": "Overstable",
     "pic": "",
     "link": ""
   },
@@ -5766,6 +5794,20 @@
     "stability": "Stable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/0000283.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=phi&post_type=product"
+  },
+  {
+    "id": "314773c6-f290-570b-9b62-a2fdd0d559c4",
+    "name": "Protos",
+    "brand": "EV-7",
+    "category": "Control Driver",
+    "type": "Fairway",
+    "speed": 8,
+    "glide": 6,
+    "turn": -3,
+    "fade": 1,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "55f6fa47-68e8-5404-ad41-e3295dd5ea4c",
