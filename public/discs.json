@@ -4676,6 +4676,34 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=Despair&post_type=product"
   },
   {
+    "id": "f73db3f0-0b6f-56d8-b742-6a9f97d6a178",
+    "name": "Dread",
+    "brand": "Doomsday Discs",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 2,
+    "glide": 4,
+    "turn": 0,
+    "fade": 1,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "f1ab7ee7-740a-5581-ba5f-bf2ef1e2967f",
+    "name": "Dystopia",
+    "brand": "Doomsday Discs",
+    "category": "Hybrid Driver",
+    "type": "Fairway",
+    "speed": 10,
+    "glide": 5,
+    "turn": -2,
+    "fade": 2,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "b3429c23-3d74-5964-a7e8-650ee92cc988",
     "name": "Famine",
     "brand": "Doomsday Discs",
@@ -5722,6 +5750,20 @@
     "turn": -2,
     "fade": 1,
     "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "fd6d6f52-25c7-51d9-85d6-5903e176eb2d",
+    "name": "Ethos",
+    "brand": "EV-7",
+    "category": "Midrange",
+    "type": "Midrange",
+    "speed": 5,
+    "glide": 4,
+    "turn": 0,
+    "fade": 2,
+    "stability": "Overstable",
     "pic": "",
     "link": ""
   },
