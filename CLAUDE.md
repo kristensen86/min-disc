@@ -39,6 +39,7 @@ Mere-menu: Salg, Stats, Ønskeliste, Del app
 - Ejet samling med unikke disc-instanser (samme mold kan ejes flere gange)
 - Opret egen disc hvis ikke i databasen
 - Bekræftelse ved sletning
+- Skift disc-mold på en ejet instans direkte fra edit-visningen (til rettelse hvis scanneren fandt forkert disc) — uid og overrides bevares
 
 **Bags**
 - Flere navngivne bags
