@@ -10,14 +10,22 @@ function getBagDiscs(bag, ownedDiscs, overrides) {
   }).filter(Boolean);
 }
 
-function CompactDisc({ disc, highlight }) {
+function CompactDisc({ disc, highlight, onEditDisc }) {
   const color = disc.pColor || TYPE_COLOR[disc.type];
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 6,
-      padding: "5px 0",
-      borderBottom: `1px solid ${C.line}10`,
-    }}>
+    <div
+      className={onEditDisc ? "tap-editable" : undefined}
+      role={onEditDisc ? "button" : undefined}
+      tabIndex={onEditDisc ? 0 : undefined}
+      onClick={onEditDisc ? () => onEditDisc(disc.uid) : undefined}
+      onKeyDown={onEditDisc ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEditDisc(disc.uid); } } : undefined}
+      aria-label={onEditDisc ? `Rediger ${disc.name}` : undefined}
+      style={{
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "5px 0",
+        borderBottom: `1px solid ${C.line}10`,
+        borderRadius: 8,
+      }}>
       <div style={{
         width: 24, height: 24, flexShrink: 0, borderRadius: "50%",
         background: disc.pPhoto ? C.raised : `${color}20`,
@@ -43,7 +51,7 @@ function CompactDisc({ disc, highlight }) {
   );
 }
 
-function BagColumn({ bag, discs, sharedIds, bags, selectedId, onSelect }) {
+function BagColumn({ bag, discs, sharedIds, bags, selectedId, onSelect, onEditDisc }) {
   const typeCounts = TYPES.map(t => ({ t, n: discs.filter(d => d.type === t).length })).filter(x => x.n > 0);
 
   return (
@@ -68,7 +76,7 @@ function BagColumn({ bag, discs, sharedIds, bags, selectedId, onSelect }) {
                 color: TYPE_COLOR[t], marginBottom: 3,
               }}>{t}</div>
               {discs.filter(d => d.type === t).map((d, i) => (
-                <CompactDisc key={d.uid ?? d.id + i} disc={d} highlight={sharedIds.has(d.id)}/>
+                <CompactDisc key={d.uid ?? d.id + i} disc={d} highlight={sharedIds.has(d.id)} onEditDisc={onEditDisc}/>
               ))}
             </div>
           ))}
@@ -88,7 +96,7 @@ function BagColumn({ bag, discs, sharedIds, bags, selectedId, onSelect }) {
   );
 }
 
-export function BagComparison({ bags, ownedDiscs, allDiscs, overrides }) {
+export function BagComparison({ bags, ownedDiscs, allDiscs, overrides, onEditDisc }) {
   const defaultA = bags[0]?.id ?? "";
   const defaultB = bags[1]?.id ?? "";
   const [idA, setIdA] = useState(defaultA);
@@ -126,9 +134,9 @@ export function BagComparison({ bags, ownedDiscs, allDiscs, overrides }) {
         </div>
       )}
       <div style={{ display: "flex", gap: 8 }}>
-        <BagColumn bag={bagA} discs={discsA} sharedIds={sharedIds} bags={bags} selectedId={idA} onSelect={setIdA}/>
+        <BagColumn bag={bagA} discs={discsA} sharedIds={sharedIds} bags={bags} selectedId={idA} onSelect={setIdA} onEditDisc={onEditDisc}/>
         <div style={{ width: 1, background: C.line, flexShrink: 0 }}/>
-        <BagColumn bag={bagB} discs={discsB} sharedIds={sharedIds} bags={bags} selectedId={idB} onSelect={setIdB}/>
+        <BagColumn bag={bagB} discs={discsB} sharedIds={sharedIds} bags={bags} selectedId={idB} onSelect={setIdB} onEditDisc={onEditDisc}/>
       </div>
     </div>
   );

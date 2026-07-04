@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Check, Trash2, X, Pencil } from "lucide-react";
+import { Search, Plus, Check, Trash2, X } from "lucide-react";
 import { C, TYPES, TYPE_COLOR } from "../constants";
 import { resolveDisc, conditionText } from "../utils";
 import { btn, iconBtn, secHdr, Empty } from "./ui";
@@ -78,6 +78,7 @@ export function BagDetail({ bag, ownedDiscs, overrides, onBack, onRename, onDele
             discs={entryDiscs.map(e => e.disc)}
             selectedId={flightSelected}
             onSelect={setFlightSelected}
+            onEditDisc={onEditDisc}
           />
         </div>
       )}
@@ -202,8 +203,8 @@ export function BagDetail({ bag, ownedDiscs, overrides, onBack, onRename, onDele
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {entryDiscs.filter(e => e.disc.type === t).map(e => (
                       <DiscCard key={e.entryId} disc={e.disc}
+                        onEditNav={onEditDisc}
                         actions={[
-                          ...(onEditDisc ? [{ icon: Pencil, label: "Rediger disc", onClick: () => onEditDisc(e.disc.uid), color: C.muted }] : []),
                           { icon: Trash2, label: "Fjern fra bag", onClick: () => onRemoveDisc(e.entryId), color: C.distance },
                         ]}/>
                     ))}

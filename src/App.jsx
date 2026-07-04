@@ -682,13 +682,14 @@ export default function App() {
                     ]}
                     sourceKey={bagsFlightSourceKey}
                     onSourceChange={key => { setBagsFlightSourceKey(key); setBagsFlightSelected(null); }}
+                    onEditDisc={openEditForDisc}
                   />
                 </div>
               )}
 
               {/* Sammenligning */}
               {bagsTab === "compare" && !showGenerator && (
-                <BagComparison bags={bags} ownedDiscs={ownedDiscs} allDiscs={allDiscs} overrides={overrides}/>
+                <BagComparison bags={bags} ownedDiscs={ownedDiscs} allDiscs={allDiscs} overrides={overrides} onEditDisc={openEditForDisc}/>
               )}
 
               {/* Mine bags */}
@@ -750,9 +751,10 @@ export default function App() {
                 ]}
                 sourceKey={flightSourceKey}
                 onSourceChange={setFlightSourceKey}
+                onEditDisc={openEditForDisc}
               />
             </div>
-            {flightSelectedDisc && <DiscCard disc={flightSelectedDisc}/>}
+            {flightSelectedDisc && <DiscCard disc={flightSelectedDisc} onEditNav={openEditForDisc}/>}
           </div>
         )}
 

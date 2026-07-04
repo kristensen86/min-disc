@@ -5,13 +5,14 @@ import { iconBtn } from "./ui";
 import { FlightChart } from "./FlightChart";
 import { FlightEditor } from "./FlightEditor";
 
-export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit = null, override = null, onSave = null, onClear = null, allDiscs = [], onChangeMold = null }) {
+export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit = null, override = null, onSave = null, onClear = null, allDiscs = [], onChangeMold = null, onEditNav = null }) {
   const hasOverride = !!override;
   const [showBane, setShowBane] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [moldChangeMsg, setMoldChangeMsg] = useState(null);
   const open = isEditing || showBane;
   const glowColor = disc.pColor || TYPE_COLOR[disc.type];
+  const cardTappable = !onToggleEdit && !!onEditNav;
 
   function handleChangeMold(newDisc) {
     onChangeMold(newDisc.id);
@@ -21,20 +22,27 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
 
   return (
     <div>
-      <div style={{
-        padding: "14px 14px 12px",
-        background: `linear-gradient(145deg, ${C.surface} 0%, ${C.raised}90 100%)`,
-        border: `1px solid ${isEditing ? C.brand : showBane ? C.brand + "60" : C.line}`,
-        boxShadow: showBane || isEditing
-          ? `0 0 20px ${C.brand}18`
-          : `0 0 14px ${glowColor}08`,
-        borderRadius: open ? "16px 16px 0 0" : 16,
-      }}>
+      <div
+        className={cardTappable ? "tap-editable" : undefined}
+        role={cardTappable ? "button" : undefined}
+        tabIndex={cardTappable ? 0 : undefined}
+        onClick={cardTappable ? () => onEditNav(disc.uid) : undefined}
+        onKeyDown={cardTappable ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEditNav(disc.uid); } } : undefined}
+        aria-label={cardTappable ? `Rediger ${disc.name}` : undefined}
+        style={{
+          padding: "14px 14px 12px",
+          background: `linear-gradient(145deg, ${C.surface} 0%, ${C.raised}90 100%)`,
+          border: `1px solid ${isEditing ? C.brand : showBane ? C.brand + "60" : C.line}`,
+          boxShadow: showBane || isEditing
+            ? `0 0 20px ${C.brand}18`
+            : `0 0 14px ${glowColor}08`,
+          borderRadius: open ? "16px 16px 0 0" : 16,
+        }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
 
           {/* Photo anchor */}
           <button
-            onClick={() => setShowBane(v => !v)}
+            onClick={e => { e.stopPropagation(); setShowBane(v => !v); }}
             aria-label="Vis flyvekurve"
             style={{
               width: 64, height: 64, flexShrink: 0, padding: 0,
@@ -74,13 +82,13 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
                 <span style={{ fontSize: 9, color: C.brand, fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>●</span>
               )}
               {onToggleEdit && (
-                <button onClick={onToggleEdit} aria-label="Rediger"
+                <button onClick={e => { e.stopPropagation(); onToggleEdit(); }} aria-label="Rediger"
                   style={{ ...iconBtn(isEditing ? C.brand : C.muted), flexShrink: 0 }}>✎</button>
               )}
               {actions.map((a, i) => (
                 <div key={i} style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
                   <button
-                    onClick={a.needsConfirm ? () => setConfirmAction(a) : a.onClick}
+                    onClick={e => { e.stopPropagation(); a.needsConfirm ? setConfirmAction(a) : a.onClick(); }}
                     aria-label={a.label}
                     style={iconBtn(a.color || C.muted)}
                   >

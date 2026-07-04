@@ -13,7 +13,7 @@ async function loadImg(src) {
   });
 }
 
-export function FlightMatrix({ discs, selectedId, onSelect, sources = [], sourceKey = "owned", onSourceChange }) {
+export function FlightMatrix({ discs, selectedId, onSelect, sources = [], sourceKey = "owned", onSourceChange, onEditDisc = null }) {
   const [groupPopup, setGroupPopup] = useState(null);
   const svgRef = useRef(null);
 
@@ -118,7 +118,9 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
 
   function handleGroupTap(g) {
     if (g.discs.length === 1) {
-      onSelect(dkey(g.discs[0]) === selectedId ? null : dkey(g.discs[0]));
+      const uid = dkey(g.discs[0]);
+      onSelect(uid === selectedId ? null : uid);
+      onEditDisc?.(uid);
     } else {
       setGroupPopup(g.discs);
     }
@@ -421,7 +423,7 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
               const color = d.pColor || TYPE_COLOR[d.type];
               const isSelD = dkey(d) === selectedId;
               return (
-                <button key={dkey(d)} onClick={() => { onSelect(isSelD ? null : dkey(d)); setGroupPopup(null); }} style={{
+                <button key={dkey(d)} onClick={() => { const uid = dkey(d); onSelect(isSelD ? null : uid); setGroupPopup(null); onEditDisc?.(uid); }} style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 12,
                   padding: "11px 0", background: "transparent", border: "none",
                   borderBottom: `1px solid ${C.line}15`, cursor: "pointer", color: C.text,
