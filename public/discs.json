@@ -728,6 +728,62 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=wrath&post_type=product"
   },
   {
+    "id": "cc716e78-8257-5bc2-9e1b-4e2a552901b2",
+    "name": "Bernoulli Putter",
+    "brand": "Bernoulli Disc Golf",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 2,
+    "glide": 5,
+    "turn": 0,
+    "fade": 1,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "27ff51f2-8e2d-5e1a-a4bc-21598c8e1aff",
+    "name": "Einstein",
+    "brand": "Bernoulli Disc Golf",
+    "category": "Midrange",
+    "type": "Midrange",
+    "speed": 5,
+    "glide": 4,
+    "turn": -1,
+    "fade": 1,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "0b04ea38-6814-570f-ac6d-698aee309ef7",
+    "name": "Hubble",
+    "brand": "Bernoulli Disc Golf",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 13,
+    "glide": 6,
+    "turn": -3,
+    "fade": 2,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "e0086d35-e1c8-5689-a18c-e18c22e515e4",
+    "name": "Johnson",
+    "brand": "Bernoulli Disc Golf",
+    "category": "Control Driver",
+    "type": "Fairway",
+    "speed": 9,
+    "glide": 6,
+    "turn": -3,
+    "fade": 1,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "87c56965-7df7-5516-9872-4652e671b0ce",
     "name": "Marvel",
     "brand": "Birdie",
@@ -4494,6 +4550,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=bleak&post_type=product"
   },
   {
+    "id": "d28b2c73-17ad-5d65-9b04-b162c9ae3ef1",
+    "name": "Bologna",
+    "brand": "Doomsday Discs",
+    "category": "Approach Discs",
+    "type": "Putter",
+    "speed": 4,
+    "glide": 3,
+    "turn": 0,
+    "fade": 2.5,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "8c794329-96e8-5fb3-adab-e4a21b083476",
     "name": "Cardiac Arrest",
     "brand": "Doomsday Discs",
@@ -4604,6 +4674,34 @@
     "stability": "Stable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/0000512.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=Despair&post_type=product"
+  },
+  {
+    "id": "f73db3f0-0b6f-56d8-b742-6a9f97d6a178",
+    "name": "Dread",
+    "brand": "Doomsday Discs",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 2,
+    "glide": 4,
+    "turn": 0,
+    "fade": 1,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "f1ab7ee7-740a-5581-ba5f-bf2ef1e2967f",
+    "name": "Dystopia",
+    "brand": "Doomsday Discs",
+    "category": "Hybrid Driver",
+    "type": "Fairway",
+    "speed": 10,
+    "glide": 5,
+    "turn": -2,
+    "fade": 2,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "b3429c23-3d74-5964-a7e8-650ee92cc988",
@@ -5628,6 +5726,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=screech&post_type=product"
   },
   {
+    "id": "60930516-881e-5985-a5a6-4325e9634361",
+    "name": "Uktena",
+    "brand": "Elevation Disc Golf",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 11,
+    "glide": 5,
+    "turn": -2,
+    "fade": 2,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "aabfaa0b-63f6-58d7-862b-8235bab35538",
     "name": "Agera",
     "brand": "EV-7",
@@ -5638,6 +5750,34 @@
     "turn": -2,
     "fade": 1,
     "stability": "Understable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "fd6d6f52-25c7-51d9-85d6-5903e176eb2d",
+    "name": "Ethos",
+    "brand": "EV-7",
+    "category": "Midrange",
+    "type": "Midrange",
+    "speed": 5,
+    "glide": 4,
+    "turn": 0,
+    "fade": 2,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
+    "id": "efd50858-39de-5e4b-94d8-d4e7ebe439f1",
+    "name": "Kairos",
+    "brand": "EV-7",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 12,
+    "glide": 5,
+    "turn": -1,
+    "fade": 3,
+    "stability": "Overstable",
     "pic": "",
     "link": ""
   },
@@ -5696,6 +5836,20 @@
     "stability": "Stable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/0000283.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=phi&post_type=product"
+  },
+  {
+    "id": "314773c6-f290-570b-9b62-a2fdd0d559c4",
+    "name": "Protos",
+    "brand": "EV-7",
+    "category": "Control Driver",
+    "type": "Fairway",
+    "speed": 8,
+    "glide": 6,
+    "turn": -3,
+    "fade": 1,
+    "stability": "Understable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "55f6fa47-68e8-5404-ad41-e3295dd5ea4c",
@@ -9198,6 +9352,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=stal&post_type=product"
   },
   {
+    "id": "aca589d2-c26e-5342-9e11-f0204b961e79",
+    "name": "Sten",
+    "brand": "Kastaplast",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 1,
+    "glide": 1,
+    "turn": 0,
+    "fade": 2,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "6a01b395-f3a4-518f-bf8b-86c4a482e892",
     "name": "Stig",
     "brand": "Kastaplast",
@@ -12012,6 +12180,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=catalyst&post_type=product"
   },
   {
+    "id": "7a306fa3-49bf-5899-bb4c-54561d063d2a",
+    "name": "Control",
+    "brand": "MVP",
+    "category": "Hybrid Driver",
+    "type": "Fairway",
+    "speed": 10,
+    "glide": 5,
+    "turn": -0.5,
+    "fade": 2,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "b250c028-7449-55d3-b97c-d7e7a6144e91",
     "name": "Deflector",
     "brand": "MVP",
@@ -14560,16 +14742,16 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=Ascend&post_type=product"
   },
   {
-    "id": "0dc950a3-6910-556b-98a2-b5b6c2c9ef73",
+    "id": "9815d003-3925-5df3-ad52-f064fe2f8e9b",
     "name": "Boost",
     "brand": "Streamline",
-    "category": "Control Driver",
+    "category": "Hybrid Driver",
     "type": "Fairway",
     "speed": 9.5,
     "glide": 4,
     "turn": 0,
     "fade": 2.5,
-    "stability": "Stable",
+    "stability": "Overstable",
     "pic": "",
     "link": ""
   },
@@ -15692,6 +15874,20 @@
     "stability": "Overstable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/8363222.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=giant&post_type=product"
+  },
+  {
+    "id": "8c65ea6b-c841-51be-aa91-2cc634726b8d",
+    "name": "Giant Reborn",
+    "brand": "Westside Discs",
+    "category": "Distance Driver",
+    "type": "Distance",
+    "speed": 12,
+    "glide": 6,
+    "turn": -0.5,
+    "fade": 2,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "4e5ed7d9-7d3d-5e5c-89d5-424132498640",
