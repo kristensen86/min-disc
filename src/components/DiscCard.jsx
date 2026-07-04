@@ -5,12 +5,19 @@ import { iconBtn } from "./ui";
 import { FlightChart } from "./FlightChart";
 import { FlightEditor } from "./FlightEditor";
 
-export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit = null, override = null, onSave = null, onClear = null }) {
+export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit = null, override = null, onSave = null, onClear = null, allDiscs = [], onChangeMold = null }) {
   const hasOverride = !!override;
   const [showBane, setShowBane] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [moldChangeMsg, setMoldChangeMsg] = useState(null);
   const open = isEditing || showBane;
   const glowColor = disc.pColor || TYPE_COLOR[disc.type];
+
+  function handleChangeMold(newDisc) {
+    onChangeMold(newDisc.id);
+    setMoldChangeMsg(`Disc skiftet til ${newDisc.name}`);
+    setTimeout(() => setMoldChangeMsg(null), 3500);
+  }
 
   return (
     <div>
@@ -168,9 +175,18 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
         </div>
       )}
 
+      {moldChangeMsg && (
+        <div style={{
+          marginTop: 8, padding: "9px 12px", borderRadius: 12,
+          background: `${C.brand}12`, border: `1px solid ${C.brand}40`,
+          color: C.brand, fontSize: 12.5, fontWeight: 600,
+        }}>{moldChangeMsg}</div>
+      )}
+
       {isEditing && (
-        <FlightEditor disc={disc} override={override}
-          onSave={onSave} onClear={onClear} onClose={onToggleEdit}/>
+        <FlightEditor key={disc.id} disc={disc} override={override}
+          onSave={onSave} onClear={onClear} onClose={onToggleEdit}
+          allDiscs={allDiscs} onChangeMold={onChangeMold ? handleChangeMold : null}/>
       )}
 
       {confirmAction && (

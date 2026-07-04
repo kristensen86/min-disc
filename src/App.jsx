@@ -237,6 +237,7 @@ export default function App() {
 
   const addToOwned = id => setOwned(o => [...o, { uid: genId(), discId: id }]);
   const removeFromOwned = uid => setOwned(o => o.filter(x => x.uid !== uid));
+  const changeDiscMold = (uid, newDiscId) => setOwned(o => o.map(x => x.uid === uid ? { ...x, discId: newDiscId } : x));
   const addToWishlist = id => setWishlist(w => w.includes(id) ? w : [...w, id]);
   const removeFromWishlist = id => setWishlist(w => w.filter(x => x !== id));
 
@@ -610,6 +611,8 @@ export default function App() {
                           override={overrides[d.uid] || null}
                           onSave={vals => saveOverride(d.uid, vals)}
                           onClear={() => clearOverride(d.uid)}
+                          allDiscs={allDiscs}
+                          onChangeMold={newDiscId => changeDiscMold(d.uid, newDiscId)}
                           actions={[
                             {
                               icon: Tag,

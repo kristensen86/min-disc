@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { C, DISC_COLORS } from "../constants";
 import { conditionText, suggestSalePrices } from "../utils";
 import { miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
+import { MoldPickerModal } from "./MoldPickerModal";
 
-export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
+export function FlightEditor({ disc, override, onSave, onClear, onClose, allDiscs = [], onChangeMold = null }) {
   const cur = { ...disc, ...(override || {}) };
+  const [showMoldPicker, setShowMoldPicker] = useState(false);
   const [vals, setVals] = useState({
     speed: cur.speed, glide: cur.glide, turn: cur.turn, fade: cur.fade,
     pColor: cur.pColor || null, pWeight: cur.pWeight || "", pPlastic: cur.pPlastic || "",
@@ -40,10 +43,29 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose }) {
         />
       )}
 
+      {showMoldPicker && (
+        <MoldPickerModal
+          allDiscs={allDiscs}
+          currentDiscId={disc.id}
+          onSelect={newDisc => { onChangeMold(newDisc); setShowMoldPicker(false); }}
+          onClose={() => setShowMoldPicker(false)}
+        />
+      )}
+
       <div style={{
         padding: "14px 16px", background: C.raised,
         border: `1px solid ${C.brand}40`, borderRadius: "0 0 16px 16px", marginTop: -2,
       }}>
+
+        {onChangeMold && (
+          <button onClick={() => setShowMoldPicker(true)} style={{
+            display: "flex", alignItems: "center", gap: 6, marginBottom: 16,
+            background: "transparent", border: `1px solid ${C.line}`, borderRadius: 999,
+            padding: "7px 13px", color: C.muted, fontSize: 12, fontWeight: 500, cursor: "pointer",
+          }}>
+            <RefreshCw size={13}/> Forkert disc? Skift mold
+          </button>
+        )}
 
         {/* Flight numbers */}
         <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Flight-tal</div>
