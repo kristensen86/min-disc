@@ -4,6 +4,15 @@ import { C, TYPE_COLOR } from "../constants";
 
 function lw(t) { return t.length * 4.8 + 6; }
 
+async function loadImg(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 export function FlightMatrix({ discs, selectedId, onSelect, sources = [], sourceKey = "owned", onSourceChange }) {
   const [groupPopup, setGroupPopup] = useState(null);
   const svgRef = useRef(null);
@@ -116,21 +125,137 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
   }
 
   async function exportImage() {
-    const svg = svgRef.current;
-    if (!svg) return;
+    if (discs.length === 0) return;
     try {
-      const svgStr = new XMLSerializer().serializeToString(svg);
-      const scale = 2;
+      // Draw directly on a canvas (rather than rasterizing a serialized SVG data-URI):
+      // an <img src="data:image/svg+xml..."> is decoded in an isolated context that can't
+      // see the page's @font-face CSS, so custom fonts silently fall back to a system font.
+      // Canvas 2D text drawn in this document has full access to already-loaded fonts.
+      await document.fonts.ready;
+      const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
+
+      const photos = await Promise.all(groups.map(g => g.discs[0].pPhoto ? loadImg(g.discs[0].pPhoto) : Promise.resolve(null)));
+      const photoByKey = new Map(groups.map((g, i) => [g.key, photos[i]]));
+
       const canvas = document.createElement("canvas");
       canvas.width = W * scale; canvas.height = H * scale;
       const ctx = canvas.getContext("2d");
       ctx.scale(scale, scale);
-      const img = new Image();
-      await new Promise((res, rej) => {
-        img.onload = res; img.onerror = rej;
-        img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgStr)));
+
+      ctx.fillStyle = C.surface;
+      ctx.fillRect(0, 0, W, H);
+
+      // Grid
+      xTicks.forEach(s => {
+        ctx.save();
+        ctx.strokeStyle = s === 0 ? C.brand : C.line;
+        ctx.globalAlpha = s === 0 ? 0.35 : 0.12;
+        ctx.lineWidth = s === 0 ? 1 : 0.5;
+        if (s === 0) ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(mapX(s), padT); ctx.lineTo(mapX(s), H - padB); ctx.stroke();
+        ctx.restore();
       });
-      ctx.drawImage(img, 0, 0, W, H);
+      yTicks.forEach(s => {
+        ctx.save();
+        ctx.strokeStyle = C.line; ctx.globalAlpha = 0.12; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(padL, mapY(s)); ctx.lineTo(W - padR, mapY(s)); ctx.stroke();
+        ctx.restore();
+      });
+
+      // Tick labels
+      ctx.textBaseline = "alphabetic";
+      xTicks.forEach(s => {
+        ctx.fillStyle = s === 0 ? C.muted : "#2a3e2a";
+        ctx.font = "7.5px 'DM Sans', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(String(s), mapX(s), H - padB + 11);
+      });
+      yTicks.forEach(s => {
+        ctx.fillStyle = C.muted;
+        ctx.font = "7px 'DM Sans', sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(String(s), padL - 3, mapY(s) + 2.5);
+      });
+
+      // OS / US
+      ctx.save();
+      ctx.fillStyle = C.muted; ctx.globalAlpha = 0.6;
+      ctx.font = "8.5px 'DM Sans', sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("← OS", padL + 2, H - padB + 22);
+      ctx.textAlign = "right";
+      ctx.fillText("US →", W - padR - 2, H - padB + 22);
+      ctx.restore();
+
+      // Labels + connector lines
+      labels.forEach(lb => {
+        if (lb.needsLine) {
+          ctx.save();
+          ctx.strokeStyle = lb.color; ctx.globalAlpha = 0.4; ctx.lineWidth = 0.5;
+          ctx.setLineDash([2, 2]);
+          ctx.beginPath(); ctx.moveTo(lb.g.jx, lb.g.jy); ctx.lineTo(lb.lx, lb.ly); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.fillStyle = lb.isSel ? C.text : C.muted;
+        ctx.font = `${lb.isSel ? 600 : 400} 6px 'DM Sans', sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(lb.text, lb.lx, lb.ly + 3);
+      });
+
+      // Markers
+      groups.forEach(g => {
+        const { jx, jy, isSel, discs: gd, key } = g;
+        const lead = gd[0];
+        const color = lead.pColor || TYPE_COLOR[lead.type];
+        const count = gd.length;
+        const photo = photoByKey.get(key);
+
+        if (isSel) {
+          ctx.save();
+          ctx.globalAlpha = 0.14; ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(jx, jy, r + 6, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 0.6; ctx.strokeStyle = color; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(jx, jy, r + 2, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
+
+        if (photo) {
+          ctx.save();
+          ctx.globalAlpha = 0.12; ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(jx, jy, r, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.beginPath(); ctx.arc(jx, jy, r, 0, Math.PI * 2); ctx.clip();
+          const s = Math.max((r * 2) / photo.naturalWidth, (r * 2) / photo.naturalHeight);
+          const dw = photo.naturalWidth * s, dh = photo.naturalHeight * s;
+          ctx.drawImage(photo, jx - dw / 2, jy - dh / 2, dw, dh);
+          ctx.restore();
+          ctx.strokeStyle = isSel ? color : color + "60";
+          ctx.lineWidth = isSel ? 1.5 : 0.8;
+          ctx.beginPath(); ctx.arc(jx, jy, r, 0, Math.PI * 2); ctx.stroke();
+        } else {
+          ctx.save();
+          ctx.globalAlpha = isSel ? 0.9 : 0.75;
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(jx, jy, r, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+          if (isSel) {
+            ctx.strokeStyle = C.bg; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(jx, jy, r, 0, Math.PI * 2); ctx.stroke();
+          }
+        }
+
+        if (count > 1) {
+          const badgeX = jx + r * 0.72, badgeY = jy - r * 0.72;
+          ctx.fillStyle = C.brand;
+          ctx.strokeStyle = C.bg; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(badgeX, badgeY, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = C.bg;
+          ctx.font = "700 7px 'DM Sans', sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(String(count), badgeX, badgeY + 2.5);
+        }
+      });
+
       canvas.toBlob(blob => {
         if (!blob) return;
         const file = new File([blob], "flight-matrix.png", { type: "image/png" });
