@@ -30,7 +30,7 @@ og vennerne.
 ## Navigation
 
 `[Søg] [Mine] [📷 FAB] [Bags] [Mere]`
-Mere-menu: Salg, Stats, Ønskeliste, Bulk scan, Del app
+Mere-menu: Salg, Stats, Ønskeliste, Del app
 
 ## Bygget — kernefunktioner
 
@@ -64,7 +64,6 @@ Mere-menu: Salg, Stats, Ønskeliste, Bulk scan, Del app
 **AI features**
 - Disc-scanner (kamera) — Claude Vision genkender disc
 - Auto-crop via bbox-koordinater
-- Bulk disc-scanner — billede af mange discs, Tinder-swipe UI
 
 **Salg**
 - Salgsliste med drag-sortering
@@ -121,7 +120,6 @@ VITE_ANTHROPIC_API_KEY
 
 ## Kendte issues
 
-- Bulk scanner under test
 - Flight labels kan overlappe ved mange tætte discs
 
 ## Arbejdsflow
