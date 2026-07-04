@@ -16,7 +16,6 @@ import { BagComparison } from "./components/BagComparison";
 import { SalePanel } from "./components/SalePanel";
 import { CreateDiscForm } from "./components/CreateDiscForm";
 import { DiscScanner } from "./components/DiscScanner";
-import { BulkDiscScanner } from "./components/BulkDiscScanner";
 import { OverflowMenu } from "./components/OverflowMenu";
 
 export default function App() {
@@ -48,7 +47,6 @@ export default function App() {
   const [customDiscs, setCustomDiscs] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDbScanner, setShowDbScanner] = useState(false);
-  const [showBulkScanner, setShowBulkScanner] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
   const [bagsFlightSourceKey, setBagsFlightSourceKey] = useState("owned");
   const [bagsFlightSelected, setBagsFlightSelected] = useState(null);
@@ -796,56 +794,11 @@ export default function App() {
       </div>
 
       {/* Overflow menu */}
-      {showBulkScanner && (
-        <BulkDiscScanner
-          onAddDisc={(result, previewUrl) => {
-            const nameLow = (result.name || "").toLowerCase();
-            const brandLow = (result.brand || "").toLowerCase();
-            const match = allDiscs.find(d =>
-              d.name.toLowerCase() === nameLow && (!brandLow || d.brand.toLowerCase() === brandLow)
-            );
-            const newUid = genId();
-            const overrideData = {
-              ...(result.plastic && { pPlastic: result.plastic }),
-              ...(result.colorHex && { pColor: result.colorHex }),
-              ...(previewUrl && { pPhoto: previewUrl }),
-              ...(result.pWeight && { pWeight: result.pWeight }),
-            };
-            if (match) {
-              setOwned(o => [...o, { uid: newUid, discId: match.id }]);
-            } else {
-              const type = result.type || (result.speed ? typeFromSpeed(Number(result.speed)) : "Distance");
-              const t = Number(result.turn) || 0, f = Number(result.fade) || 2;
-              const s = f - t;
-              const stability = s <= -3 ? "Very Understable" : s <= -1 ? "Understable" : s <= 1 ? "Stable" : s <= 3 ? "Overstable" : "Very Overstable";
-              const customDisc = {
-                id: "custom_" + genId(),
-                name: result.name || "Ukendt disc",
-                brand: result.brand || "Ukendt",
-                type, stability, isCustom: true,
-                speed: Number(result.speed) || 7,
-                glide: Number(result.glide) || 5,
-                turn: t, fade: f,
-              };
-              setCustomDiscs(c => [...c, customDisc]);
-              setAllDiscs(d => [...d, customDisc]);
-              setOwned(o => [...o, { uid: newUid, discId: customDisc.id }]);
-            }
-            if (Object.keys(overrideData).length > 0) {
-              setOverrides(prev => ({ ...prev, [newUid]: overrideData }));
-            }
-          }}
-          onDone={() => { setShowBulkScanner(false); setTab("owned"); setOpenBagId(null); }}
-          onClose={() => setShowBulkScanner(false)}
-        />
-      )}
-
       {showOverflow && (
         <OverflowMenu
           ownedCount={owned.length}
           wishCount={wishlist.length}
           forSaleCount={forSaleDiscs.length}
-          onGoBulkScan={() => setShowBulkScanner(true)}
           onGoSalg={() => { setTab("salg"); setOpenBagId(null); }}
           onGoStats={() => { setTab("stats"); setOpenBagId(null); }}
           onGoWish={() => { setTab("wish"); setOpenBagId(null); }}

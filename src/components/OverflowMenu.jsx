@@ -1,14 +1,8 @@
-import { X, Tag, BarChart2, Bookmark, Share2, LogOut, Grid2x2 } from "lucide-react";
+import { X, Tag, BarChart2, Bookmark, Share2, LogOut } from "lucide-react";
 import { C } from "../constants";
 
-export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoBulkScan, onGoSalg, onGoStats, onGoWish, onShare, onLogout, userEmail, onClose }) {
+export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, onGoStats, onGoWish, onShare, onLogout, userEmail, onClose }) {
   const items = [
-    {
-      icon: Grid2x2, color: C.brand,
-      label: "Bulk scan",
-      desc: "Scan flere discs på én gang",
-      onClick: onGoBulkScan,
-    },
     {
       icon: Tag, color: forSaleCount > 0 ? C.brand : C.muted,
       label: "Salg",
