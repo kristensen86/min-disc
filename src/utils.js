@@ -1,21 +1,54 @@
+import exifr from "exifr";
 import { TYPES } from "./constants";
 
-export function resizeImage(file,maxPx=300){
-  return new Promise(resolve=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      const img=new Image();
-      img.onload=()=>{
-        const scale=Math.min(maxPx/img.width,maxPx/img.height,1);
-        const c=document.createElement("canvas");
-        c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
-        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-        resolve(c.toDataURL("image/jpeg",0.72));
-      };
-      img.src=e.target.result;
-    };
+// Android camera photos carry an EXIF orientation tag that canvas ignores when
+// drawing — without this, the pixels canvas sees can be sideways/upside-down
+// relative to what the photo looks like, throwing off every later bbox-based crop.
+function drawUpright(img, orientation) {
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const swapped = orientation >= 5 && orientation <= 8;
+  const canvas = document.createElement("canvas");
+  canvas.width = swapped ? h : w;
+  canvas.height = swapped ? w : h;
+  const ctx = canvas.getContext("2d");
+  switch (orientation) {
+    case 2: ctx.transform(-1, 0, 0, 1, w, 0); break;
+    case 3: ctx.transform(-1, 0, 0, -1, w, h); break;
+    case 4: ctx.transform(1, 0, 0, -1, 0, h); break;
+    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+    case 6: ctx.transform(0, 1, -1, 0, h, 0); break;
+    case 7: ctx.transform(0, -1, -1, 0, h, w); break;
+    case 8: ctx.transform(0, -1, 1, 0, 0, w); break;
+    default: break; // 1, or unknown — already upright
+  }
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
+
+export async function resizeImage(file, maxPx = 300) {
+  let orientation = 1;
+  try { orientation = (await exifr.orientation(file)) || 1; } catch { orientation = 1; }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+
+  const upright = drawUpright(img, orientation);
+  const scale = Math.min(maxPx / upright.width, maxPx / upright.height, 1);
+  const out = document.createElement("canvas");
+  out.width = Math.round(upright.width * scale);
+  out.height = Math.round(upright.height * scale);
+  out.getContext("2d").drawImage(upright, 0, 0, out.width, out.height);
+  return out.toDataURL("image/jpeg", 0.72);
 }
 
 export function encodeBag(bag,allDiscs){

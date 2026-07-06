@@ -20,7 +20,16 @@ function cropDisc(dataUrl, discPos) {
     const img = new Image();
     img.onload = () => {
       try {
-        const { centerX, centerY, radius } = discPos;
+        console.log("[DiscScanner] cropDisc", { imgWidth: img.width, imgHeight: img.height, discPos });
+
+        let { centerX, centerY, radius } = discPos || {};
+        const valid = [centerX, centerY, radius].every(Number.isFinite)
+          && centerX > 0 && centerX < 100 && centerY > 0 && centerY < 100 && radius > 2 && radius < 60;
+        if (!valid) {
+          console.log("[DiscScanner] bbox out of bounds — falling back to center crop", discPos);
+          centerX = 50; centerY = 50; radius = 40;
+        }
+
         const cx = (centerX / 100) * img.width;
         const cy = (centerY / 100) * img.height;
         const r  = (radius  / 100) * img.width;
