@@ -12,6 +12,7 @@ const TYPE_COLORS = { Putter: "#93c5fd", Midrange: "#86efac", Fairway: "#fdba74"
 async function loadImg(src) {
   return new Promise(resolve => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = src;

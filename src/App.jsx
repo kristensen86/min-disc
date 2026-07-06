@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Search, Plus, X, Trash2, AlertCircle, Heart, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
 import { store } from "./store";
+import { uploadPhoto, deletePhoto } from "./photoStorage";
 import { iconBtn, btn, Empty, SectionHeader } from "./components/ui";
 import { DiscCard } from "./components/DiscCard";
 import { FlightMatrix } from "./components/FlightMatrix";
@@ -65,10 +66,17 @@ export default function App() {
   const [bagsFlightSourceKey, setBagsFlightSourceKey] = useState("owned");
   const [bagsFlightSelected, setBagsFlightSelected] = useState(null);
   const [ownedQuery, setOwnedQuery] = useState("");
+  const [photoError, setPhotoError] = useState(null);
+  const photoMigrationRan = useRef(false);
   const [sharedBag, setSharedBag] = useState(() => {
     try { const p = new URLSearchParams(window.location.search).get("bag"); return p ? decodeBag(p) : null; }
     catch { return null; }
   });
+
+  function showPhotoError(msg) {
+    setPhotoError(msg);
+    setTimeout(() => setPhotoError(null), 3500);
+  }
 
   useEffect(() => {
     if (!supabase) { setAuthLoading(false); return; }
@@ -210,6 +218,21 @@ export default function App() {
   useDebouncedPersist("saleOrder", saleOrder, dataLoaded);
   useDebouncedPersist("saleHistory", soldHistory, dataLoaded);
   useDebouncedPersist("customDiscs", customDiscs, dataLoaded);
+  useEffect(() => {
+    if (!dataLoaded || !authUser || photoMigrationRan.current) return;
+    photoMigrationRan.current = true;
+    const snapshot = overrides;
+    const uids = Object.keys(snapshot).filter(uid => snapshot[uid]?.pPhoto?.startsWith?.("data:"));
+    if (uids.length === 0) return;
+    (async () => {
+      for (const uid of uids) {
+        try {
+          const url = await uploadPhoto(uid, snapshot[uid].pPhoto);
+          if (url) setOverrides(prev => prev[uid] ? { ...prev, [uid]: { ...prev[uid], pPhoto: url } } : prev);
+        } catch { /* keep base64 — retried next session */ }
+      }
+    })();
+  }, [dataLoaded, authUser]);
   useEffect(() => { if (tab !== "owned") setOwnedQuery(""); }, [tab]);
   useEffect(() => {
     if (!editingDiscUid) return;
@@ -259,13 +282,19 @@ export default function App() {
   }, [flightSourceKey, resolvedOwned, bags, ownedByUid, overrides]);
   const flightSelectedDisc = flightDiscs.find(d => (d.uid ?? d.id) === flightSelected) || null;
 
+  const isStoredPhoto = url => typeof url === "string" && url.startsWith("http");
+
   const addToOwned = id => setOwned(o => [...o, { uid: genId(), discId: id }]);
-  const removeFromOwned = uid => setOwned(o => o.filter(x => x.uid !== uid));
+  function removeFromOwned(uid) {
+    if (isStoredPhoto(overrides[uid]?.pPhoto)) deletePhoto(uid).catch(() => {});
+    setOwned(o => o.filter(x => x.uid !== uid));
+  }
   const changeDiscMold = (uid, newDiscId) => setOwned(o => o.map(x => x.uid === uid ? { ...x, discId: newDiscId } : x));
   const addToWishlist = id => setWishlist(w => w.includes(id) ? w : [...w, id]);
   const removeFromWishlist = id => setWishlist(w => w.filter(x => x !== id));
 
   function saveOverride(uid, vals) {
+    const prevPhoto = overrides[uid]?.pPhoto;
     setOverrides(o => {
       const wasForSale = o[uid]?.forSale;
       const isNowForSale = vals.forSale;
@@ -274,8 +303,17 @@ export default function App() {
       return { ...o, [uid]: vals };
     });
     setEditingDiscUid(null);
+
+    if (authUser && vals.pPhoto?.startsWith?.("data:")) {
+      uploadPhoto(uid, vals.pPhoto)
+        .then(url => { if (url) setOverrides(prev => prev[uid] ? { ...prev, [uid]: { ...prev[uid], pPhoto: url } } : prev); })
+        .catch(() => showPhotoError("Foto-upload fejlede — gemt lokalt på enheden"));
+    } else if (!vals.pPhoto && isStoredPhoto(prevPhoto)) {
+      deletePhoto(uid).catch(() => {});
+    }
   }
   function clearOverride(uid) {
+    if (isStoredPhoto(overrides[uid]?.pPhoto)) deletePhoto(uid).catch(() => {});
     setOverrides(o => { const n = { ...o }; delete n[uid]; return n; });
     setSaleOrder(s => s.filter(id => id !== uid));
     setEditingDiscUid(null);
@@ -335,6 +373,7 @@ export default function App() {
     setCustomDiscs(c => c.filter(d => d.id !== id));
     setAllDiscs(d => d.filter(d => d.id !== id));
     const removedUids = new Set(owned.filter(x => x.discId === id).map(x => x.uid));
+    removedUids.forEach(uid => { if (isStoredPhoto(overrides[uid]?.pPhoto)) deletePhoto(uid).catch(() => {}); });
     setBags(bs => bs.map(b => ({ ...b, bagEntries: (b.bagEntries || []).filter(e => !removedUids.has(e.instanceId)) })));
     setOwned(prev => {
       const toRemove = new Set(prev.filter(x => x.discId === id).map(x => x.uid));
@@ -538,6 +577,12 @@ export default function App() {
                     setOverrides(prev => ({ ...prev, [newUid]: overrideData }));
                   }
                   setShowDbScanner(false);
+
+                  if (authUser && previewUrl) {
+                    uploadPhoto(newUid, previewUrl)
+                      .then(url => { if (url) setOverrides(prev => prev[newUid] ? { ...prev, [newUid]: { ...prev[newUid], pPhoto: url } } : prev); })
+                      .catch(() => showPhotoError("Foto-upload fejlede — gemt lokalt på enheden"));
+                  }
                 }}
                 onSearchFallback={(name, brand) => {
                   setQuery([name, brand].filter(Boolean).join(" "));
@@ -845,6 +890,22 @@ export default function App() {
       )}
 
       {updateReady && <UpdateBanner onReload={applyUpdate}/>}
+
+      {photoError && (
+        <div style={{
+          position: "fixed", left: 0, right: 0,
+          bottom: "calc(64px + env(safe-area-inset-bottom))",
+          zIndex: 101, display: "flex", justifyContent: "center", padding: "0 16px", pointerEvents: "none",
+        }}>
+          <div style={{
+            maxWidth: 560, width: "100%", textAlign: "center",
+            padding: "10px 14px", background: C.raised, border: `1px solid ${C.distance}45`,
+            borderRadius: 13, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", fontSize: 13, color: C.text,
+          }}>
+            {photoError}
+          </div>
+        </div>
+      )}
 
       {/* Fixed bottom navigation */}
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, overflow: "visible" }}>
