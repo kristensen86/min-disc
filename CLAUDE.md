@@ -26,6 +26,8 @@ og vennerne.
 - Putter: `#93c5fd` · Midrange: `#86efac` · Fairway: `#fdba74` · Distance: `#fca5a5`
 - Font: DM Sans · Logo: Pacifico
 - Bottom navigation med central grøn kamera-FAB (60px)
+- Type-farverne bruges konsekvent som datasignal på tværs af FlightBadge/StatsPanel/CollectorStatus — Midrange skelnes via outline-stil (i stedet for solid glow) for at undgå forveksling med brand-grøn
+- Signatur-motiv: flyvebane-kurve (`src/components/FlightArc.jsx`) — genbruges som baggrundsmotiv, sektions-flourish og loading-spinner
 
 ## Navigation
 
@@ -61,6 +63,8 @@ Mere-menu: Salg, Stats, Ønskeliste, Del app
 - Slid-status slider 0-10 med tekst
 - Eget foto med rundt auto-crop
 - Flight-bane pop-up ved tryk på type-badge
+- Flight-tal vises i eget spec-sheet-layout (`FlightNumberQuad` i `ui.jsx`, brugt af FlightEditor + CreateDiscForm) med monospace-tal
+- Delt typografisk skala i `ui.jsx` (`textDisplay`/`textTitle`/`dataMono`/`textCaption`) for konsekvent hierarki på tværs af komponenter
 
 **AI features**
 - Disc-scanner (kamera) — Claude Vision genkender disc

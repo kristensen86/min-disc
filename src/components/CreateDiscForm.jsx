@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { C, TYPES } from "../constants";
 import { genId } from "../utils";
+import { FlightNumberQuad } from "./ui";
 
 function computeStability(turn, fade) {
   const s = Number(fade) - Number(turn);
@@ -81,15 +82,8 @@ export function CreateDiscForm({ onSave, onCancel }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-        {[["Speed", "speed", 1, 15], ["Glide", "glide", 1, 7], ["Turn", "turn", -5, 1], ["Fade", "fade", 0, 5]].map(([label, key, min, max]) => (
-          <label key={key} style={{ display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
-            {label}
-            <input type="number" inputMode="decimal" value={vals[key]} min={min} max={max} step={0.5}
-              onChange={e => set(key)(e.target.value)}
-              style={{ ...inp, textAlign: "center" }}/>
-          </label>
-        ))}
+      <div style={{ marginBottom: 12 }}>
+        <FlightNumberQuad values={vals} onChange={(k, v) => set(k)(v)}/>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>

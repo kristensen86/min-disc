@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Plus, X, Trash2, AlertCircle, Loader, Heart, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
+import { Search, Plus, X, Trash2, AlertCircle, Heart, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
 import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
 import { store } from "./store";
-import { iconBtn, btn, secHdr, Empty } from "./components/ui";
+import { iconBtn, btn, Empty, SectionHeader } from "./components/ui";
 import { DiscCard } from "./components/DiscCard";
 import { FlightMatrix } from "./components/FlightMatrix";
 import { GeneratorPanel } from "./components/GeneratorPanel";
@@ -17,6 +17,7 @@ import { SalePanel } from "./components/SalePanel";
 import { CreateDiscForm } from "./components/CreateDiscForm";
 import { DiscScanner } from "./components/DiscScanner";
 import { OverflowMenu } from "./components/OverflowMenu";
+import { FlightArcSpinner } from "./components/FlightArc";
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -400,12 +401,11 @@ export default function App() {
     input::placeholder{color:${C.muted};}
     input[type=range]{height:4px;}
   `;
-  const spinStyle = `@keyframes spin{to{transform:rotate(360deg)}}`;
 
   if (authLoading) return (
     <div style={{ background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14, fontFamily: "'DM Sans',-apple-system,sans-serif" }}>
-      <style>{fontStyle + spinStyle}</style>
-      <Loader size={28} color={C.brand} style={{ animation: "spin 1s linear infinite" }}/>
+      <style>{fontStyle}</style>
+      <FlightArcSpinner cycleColors size={56}/>
       <span style={{ color: C.muted, fontSize: 14 }}>Logger ind…</span>
     </div>
   );
@@ -414,8 +414,8 @@ export default function App() {
 
   if (discsLoading) return (
     <div style={{ background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14, fontFamily: "'DM Sans',-apple-system,sans-serif" }}>
-      <style>{fontStyle + spinStyle}</style>
-      <Loader size={28} color={C.brand} style={{ animation: "spin 1s linear infinite" }}/>
+      <style>{fontStyle}</style>
+      <FlightArcSpinner cycleColors size={56}/>
       <span style={{ color: C.muted, fontSize: 14 }}>Henter disc-database…</span>
     </div>
   );
@@ -572,7 +572,9 @@ export default function App() {
                   ]}/>
                 );
               })}
-              {filtered.length === 0 && <Empty text="Ingen discs matcher din søgning."/>}
+              {filtered.length === 0 && (
+                <Empty text="Ingen discs matcher din søgning." tint={typeFilter !== "Alle" ? typeFilter : null}/>
+              )}
             </div>
             {filtered.length > visibleCount && (
               <button onClick={() => setVisible(v => v + 40)} style={{ width: "100%", marginTop: 16, padding: "13px 0", borderRadius: 13, cursor: "pointer", background: "transparent", border: `1px solid ${C.line}`, color: C.muted, fontSize: 14 }}>
@@ -602,7 +604,7 @@ export default function App() {
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {TYPES.filter(t => filteredResolved.some(d => d.type === t)).map(t => (
                   <section key={t}>
-                    <h2 style={secHdr(t)}>{t}</h2>
+                    <SectionHeader type={t}>{t}</SectionHeader>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {filteredResolved.filter(d => d.type === t).map(d => (
                         <DiscCard key={d.uid} disc={d}
@@ -843,7 +845,7 @@ export default function App() {
 
           {/* Center: FAB camera */}
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}>
-            <button onClick={() => setShowDbScanner(true)} aria-label="Scan disc" style={{
+            <button onClick={() => setShowDbScanner(true)} aria-label="Scan disc" className="fab-camera" style={{
               width: 56, height: 56, borderRadius: "50%", flexShrink: 0,
               background: "#4ade80", border: "none",
               boxShadow: "0 4px 20px rgba(74,222,128,0.4)",

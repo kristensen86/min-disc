@@ -1,12 +1,13 @@
-import { C } from "../constants";
+import { C, typeSignalStyle } from "../constants";
 
 export function FlightBadge({disc}){
+  const sig=typeSignalStyle(disc.type,5);
   return(
     <div style={{display:"flex",gap:4}}>
       {[["S",disc.speed],["G",disc.glide],["T",disc.turn],["F",disc.fade]].map(([k,v])=>(
         <div key={k} style={{minWidth:32,textAlign:"center",padding:"4px 2px",borderRadius:8,
-          background:C.bg,border:`1px solid ${C.brand}20`,
-          boxShadow:`0 0 6px ${C.brand}08`,
+          background:sig.background==="transparent"?C.bg:sig.background,
+          border:sig.border, boxShadow:sig.boxShadow,
           fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",fontSize:12,
           letterSpacing:"0.02em"}}>
           <span style={{color:C.muted}}>{k}</span>{" "}

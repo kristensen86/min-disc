@@ -163,7 +163,7 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
       </div>
 
       {showBane && !isEditing && (
-        <div style={{
+        <div className="reveal-panel" style={{
           borderLeft: `1px solid ${C.brand}50`,
           borderRight: `1px solid ${C.brand}50`,
           borderBottom: `1px solid ${C.brand}50`,

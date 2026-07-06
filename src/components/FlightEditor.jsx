@@ -2,9 +2,16 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { C, DISC_COLORS } from "../constants";
 import { conditionText, suggestSalePrices } from "../utils";
-import { miniBtn } from "./ui";
+import { miniBtn, FlightNumberQuad } from "./ui";
 import { ImageCropper } from "./ImageCropper";
 import { MoldPickerModal } from "./MoldPickerModal";
+
+function hexToRgb(hex){const h=hex.replace("#","");return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+// Worn (C.distance) -> new (C.brand): the slider's own fill/readout double as the condition signal.
+function conditionColor(condition){
+  const[ar,ag,ab]=hexToRgb(C.distance),[br,bg,bb]=hexToRgb(C.brand),t=condition/10;
+  return`rgb(${Math.round(ar+(br-ar)*t)},${Math.round(ag+(bg-ag)*t)},${Math.round(ab+(bb-ab)*t)})`;
+}
 
 export function FlightEditor({ disc, override, onSave, onClear, onClose, allDiscs = [], onChangeMold = null }) {
   const cur = { ...disc, ...(override || {}) };
@@ -52,7 +59,7 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
         />
       )}
 
-      <div style={{
+      <div className="reveal-panel" style={{
         padding: "14px 16px", background: C.raised,
         border: `1px solid ${C.brand}40`, borderRadius: "0 0 16px 16px", marginTop: -2,
       }}>
@@ -67,18 +74,10 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
           </button>
         )}
 
-        {/* Flight numbers */}
+        {/* Flight numbers — a disc's identity, styled as a spec-sheet quad rather than plain inputs */}
         <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Flight-tal</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
-          {[["Speed", "speed", 1, 15, 1], ["Glide", "glide", 1, 7, 1], ["Turn", "turn", -5, 1, 0.5], ["Fade", "fade", 0, 5, 0.5]].map(([lbl, key, min, max, step]) => (
-            <label key={key} style={{ display: "flex", flexDirection: "column", gap: 3, ...label }}>
-              {lbl}
-              <input type="number" inputMode="decimal" value={vals[key]} min={min} max={max} step={step}
-                onChange={e => set(key)(Number(e.target.value))}
-                style={{ ...inpStyle, textAlign: "center", border: `1px solid ${vals[key] !== disc[key] ? C.brand : C.line}` }}/>
-              <span style={{ fontSize: 10, color: C.line, textAlign: "center" }}>std: {disc[key]}</span>
-            </label>
-          ))}
+        <div style={{ marginBottom: 16 }}>
+          <FlightNumberQuad values={vals} reference={disc} onChange={(k, v) => set(k)(v)}/>
         </div>
 
         {/* Personal details */}
@@ -158,12 +157,15 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
                   <span style={{ color: C.muted }}>Tilstand</span>
-                  <span style={{ color: C.brand, fontWeight: 600 }}>{vals.condition}/10 — {conditionText(vals.condition)}</span>
+                  <span key={conditionText(vals.condition)} className="tier-bump"
+                    style={{ color: conditionColor(vals.condition), fontWeight: 600 }}>
+                    {vals.condition}/10 — {conditionText(vals.condition)}
+                  </span>
                 </div>
                 <input
                   type="range" min={0} max={10} step={1} value={vals.condition}
                   onChange={e => set("condition")(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: C.brand, cursor: "pointer", display: "block" }}
+                  style={{ width: "100%", accentColor: conditionColor(vals.condition), cursor: "pointer", display: "block" }}
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.muted, marginTop: 4 }}>
                   <span>Ødelagt</span><span>Ny disc</span>

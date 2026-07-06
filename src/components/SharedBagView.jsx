@@ -1,6 +1,6 @@
 import { Disc3 } from "lucide-react";
 import { C, TYPES } from "../constants";
-import { btn, secHdr } from "./ui";
+import { btn, SectionHeader } from "./ui";
 import { DiscCard } from "./DiscCard";
 
 export function SharedBagView({bag,onClose,onAddAll}){
@@ -26,7 +26,7 @@ export function SharedBagView({bag,onClose,onAddAll}){
         </div>
         {TYPES.filter(t=>bag.discs.some(d=>d.type===t)).map(t=>(
           <section key={t} style={{marginBottom:20}}>
-            <h2 style={secHdr(t)}>{t}</h2>
+            <SectionHeader type={t}>{t}</SectionHeader>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {bag.discs.filter(d=>d.type===t).map(d=>(
                 <DiscCard key={d.id} disc={d}/>

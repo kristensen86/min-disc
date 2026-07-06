@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
-import { X, Camera, Check, Search, Loader, ChevronLeft } from "lucide-react";
+import { X, Camera, Check, Search, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage, conditionText, suggestSalePrices } from "../utils";
 import { btn, miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
+import { FlightArcSpinner } from "./FlightArc";
 
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
@@ -289,14 +290,13 @@ Svar KUN med JSON:
                 display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 10,
               }}>
-                <Loader size={26} color={C.brand} style={{ animation: "spin 1s linear infinite" }}/>
+                <FlightArcSpinner cycleColors size={44}/>
                 <span style={{ color: C.text, fontSize: 13, fontWeight: 500,
                   textShadow: preview ? "0 1px 4px rgba(0,0,0,0.8)" : "none" }}>
                   Analyserer disc…
                 </span>
               </div>
             </div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
 

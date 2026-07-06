@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { C, TYPE_COLOR } from "../constants";
+import { C, TYPE_COLOR, typeBarStyle } from "../constants";
 
 export function CollectorStatus({ resolvedOwned, allDiscs }) {
   const [expandedBrand, setExpandedBrand] = useState(null);
@@ -19,7 +19,12 @@ export function CollectorStatus({ resolvedOwned, allDiscs }) {
         const total = discs.length;
         const pct = total > 0 ? Math.round((owned / total) * 100) : 0;
         const missing = discs.filter(d => !ownedIds.has(d.id));
-        return { brand, owned, total, pct, missing };
+        const ownedTypeCounts = {};
+        resolvedOwned.filter(d => d.brand === brand).forEach(d => {
+          ownedTypeCounts[d.type] = (ownedTypeCounts[d.type] || 0) + 1;
+        });
+        const dominantType = Object.entries(ownedTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+        return { brand, owned, total, pct, missing, dominantType };
       })
       .filter(g => g.owned > 0)
       .sort((a, b) => b.pct - a.pct);
@@ -38,8 +43,9 @@ export function CollectorStatus({ resolvedOwned, allDiscs }) {
       }}>Samlerstatus</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        {brandGroups.map(({ brand, owned, total, pct, missing }) => {
+        {brandGroups.map(({ brand, owned, total, pct, missing, dominantType }) => {
           const isExpanded = expandedBrand === brand;
+          const bar = dominantType ? typeBarStyle(dominantType) : { background: C.muted };
           return (
             <div key={brand}>
               <button
@@ -54,16 +60,15 @@ export function CollectorStatus({ resolvedOwned, allDiscs }) {
                 <span style={{ fontSize: 13, flex: 1, color: C.text }}>{brand}</span>
                 <div style={{ width: 70, height: 4, borderRadius: 2, background: C.line, flexShrink: 0 }}>
                   <div style={{
-                    height: 4, borderRadius: 2,
-                    background: pct >= 75 ? C.brand : pct >= 40 ? C.midrange : C.muted,
-                    width: `${pct}%`,
-                    transition: "width 0.3s",
+                    height: 4, borderRadius: 2, width: `${pct}%`,
+                    transition: "width 0.3s", ...bar,
                   }}/>
                 </div>
-                <span style={{ fontSize: 11, color: C.muted, width: 46, textAlign: "right", flexShrink: 0 }}>
+                <span style={{ fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 11, color: C.muted, width: 46, textAlign: "right", flexShrink: 0 }}>
                   {owned}/{total}
                 </span>
                 <span style={{
+                  fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace",
                   fontSize: 10, color: C.brand, width: 34, textAlign: "right",
                   fontWeight: 600, flexShrink: 0,
                 }}>{pct}%</span>

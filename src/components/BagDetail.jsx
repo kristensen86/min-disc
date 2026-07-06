@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Search, Plus, Check, Trash2, X } from "lucide-react";
 import { C, TYPES, TYPE_COLOR } from "../constants";
 import { resolveDisc, conditionText } from "../utils";
-import { btn, iconBtn, secHdr, Empty } from "./ui";
+import { btn, iconBtn, Empty, SectionHeader } from "./ui";
 import { DiscCard } from "./DiscCard";
 import { FlightMatrix } from "./FlightMatrix";
 
@@ -116,7 +116,10 @@ export function BagDetail({ bag, ownedDiscs, overrides, onBack, onRename, onDele
 
           {/* Full disc list */}
           {sorted.length === 0 ? (
-            <Empty text={q || typeFilter !== "Alle" ? "Ingen discs matcher filteret." : "Din samling er tom."}/>
+            <Empty
+              text={q || typeFilter !== "Alle" ? "Ingen discs matcher filteret." : "Din samling er tom."}
+              tint={typeFilter !== "Alle" ? typeFilter : null}
+            />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 20 }}>
               {sorted.map(d => {
@@ -199,7 +202,7 @@ export function BagDetail({ bag, ownedDiscs, overrides, onBack, onRename, onDele
                 color: C.muted, marginBottom: 12 }}>I bagen ({entryDiscs.length})</div>
               {TYPES.filter(t => entryDiscs.some(e => e.disc.type === t)).map(t => (
                 <section key={t} style={{ marginBottom: 18 }}>
-                  <h3 style={secHdr(t)}>{t}</h3>
+                  <SectionHeader type={t} as="h3">{t}</SectionHeader>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {entryDiscs.filter(e => e.disc.type === t).map(e => (
                       <DiscCard key={e.entryId} disc={e.disc}
