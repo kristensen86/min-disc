@@ -42,6 +42,7 @@ Mere-menu: Salg, Stats, Ønskeliste, Del app
 - Opret egen disc hvis ikke i databasen
 - Bekræftelse ved sletning
 - Skift disc-mold på en ejet instans direkte fra edit-visningen (til rettelse hvis scanneren fandt forkert disc) — uid og overrides bevares
+- Tryk på en disc-card/markør andre steder i appen (Flight Matrix, bag-sammenligning m.fl.) hopper til Mine-fanen og folder redigeringen ud på det korrekte kort — rydder evt. aktivt søgefilter og scroller kortet i view automatisk
 
 **Bags**
 - Flere navngivne bags

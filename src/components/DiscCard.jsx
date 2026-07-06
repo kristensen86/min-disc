@@ -21,7 +21,7 @@ export function DiscCard({ disc, actions = [], isEditing = false, onToggleEdit =
   }
 
   return (
-    <div>
+    <div id={`disc-card-${disc.uid ?? disc.id}`}>
       <div
         className={cardTappable ? "tap-editable" : undefined}
         role={cardTappable ? "button" : undefined}

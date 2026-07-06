@@ -198,6 +198,14 @@ export default function App() {
   useEffect(() => { if (dataLoaded) store.set("saleHistory", JSON.stringify(soldHistory)).catch(() => {}); }, [soldHistory, dataLoaded]);
   useEffect(() => { if (dataLoaded) store.set("customDiscs", JSON.stringify(customDiscs)).catch(() => {}); }, [customDiscs, dataLoaded]);
   useEffect(() => { if (tab !== "owned") setOwnedQuery(""); }, [tab]);
+  useEffect(() => {
+    if (!editingDiscUid) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`disc-card-${editingDiscUid}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+  }, [editingDiscUid]);
   useEffect(() => { setFlightSelected(null); }, [flightSourceKey]);
   useEffect(() => {
     if (flightSourceKey !== "owned" && !bags.some(b => "bag:" + b.id === flightSourceKey)) setFlightSourceKey("owned");
@@ -278,6 +286,7 @@ export default function App() {
     });
   }
   function openEditForDisc(uid) {
+    setOwnedQuery("");
     setTab("owned");
     setEditingDiscUid(uid);
     setOpenBagId(null);
