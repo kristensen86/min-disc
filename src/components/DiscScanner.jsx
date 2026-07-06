@@ -34,7 +34,10 @@ function cropDisc(dataUrl, discPos) {
         canvas.height = size;
         const ctx = canvas.getContext("2d");
 
-        // Circular clip — transparent outside the circle
+        ctx.fillStyle = "#182018";
+        ctx.fillRect(0, 0, size, size);
+
+        // Circular clip — fill color outside the circle
         ctx.beginPath();
         ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
         ctx.clip();
@@ -45,7 +48,7 @@ function cropDisc(dataUrl, discPos) {
           0, 0, size, size,
         );
 
-        resolve(canvas.toDataURL("image/png"));
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
       } catch (e) { reject(e); }
     };
     img.onerror = reject;

@@ -20,6 +20,7 @@ import { OverflowMenu } from "./components/OverflowMenu";
 import { FlightArcSpinner } from "./components/FlightArc";
 import { useSwipeNav } from "./hooks/useSwipeNav";
 import { useServiceWorkerUpdate } from "./hooks/useServiceWorkerUpdate";
+import { useDebouncedPersist } from "./hooks/useDebouncedPersist";
 import { UpdateBanner } from "./components/UpdateBanner";
 
 const SWIPE_TAB_ORDER = ["db", "owned", "bags"];
@@ -202,13 +203,13 @@ export default function App() {
     })();
   }, [authUser, authLoading]);
 
-  useEffect(() => { if (dataLoaded) store.set("owned", JSON.stringify(owned)).catch(() => {}); }, [owned, dataLoaded]);
-  useEffect(() => { if (dataLoaded) store.set("overrides", JSON.stringify(overrides)).catch(() => {}); }, [overrides, dataLoaded]);
-  useEffect(() => { if (dataLoaded) store.set("bags", JSON.stringify(bags)).catch(() => {}); }, [bags, dataLoaded]);
-  useEffect(() => { if (dataLoaded) store.set("wishlist", JSON.stringify(wishlist)).catch(() => {}); }, [wishlist, dataLoaded]);
-  useEffect(() => { if (dataLoaded) store.set("saleOrder", JSON.stringify(saleOrder)).catch(() => {}); }, [saleOrder, dataLoaded]);
-  useEffect(() => { if (dataLoaded) store.set("saleHistory", JSON.stringify(soldHistory)).catch(() => {}); }, [soldHistory, dataLoaded]);
-  useEffect(() => { if (dataLoaded) store.set("customDiscs", JSON.stringify(customDiscs)).catch(() => {}); }, [customDiscs, dataLoaded]);
+  useDebouncedPersist("owned", owned, dataLoaded);
+  useDebouncedPersist("overrides", overrides, dataLoaded);
+  useDebouncedPersist("bags", bags, dataLoaded);
+  useDebouncedPersist("wishlist", wishlist, dataLoaded);
+  useDebouncedPersist("saleOrder", saleOrder, dataLoaded);
+  useDebouncedPersist("saleHistory", soldHistory, dataLoaded);
+  useDebouncedPersist("customDiscs", customDiscs, dataLoaded);
   useEffect(() => { if (tab !== "owned") setOwnedQuery(""); }, [tab]);
   useEffect(() => {
     if (!editingDiscUid) return;
@@ -223,7 +224,9 @@ export default function App() {
     if (flightSourceKey !== "owned" && !bags.some(b => "bag:" + b.id === flightSourceKey)) setFlightSourceKey("owned");
   }, [bags, flightSourceKey]);
 
-  const ownedDiscs = useMemo(() => owned.map(({ uid, discId }) => { const disc = allDiscs.find(d => d.id === discId); return disc ? { ...disc, uid } : null; }).filter(Boolean), [owned, allDiscs]);
+  const discById = useMemo(() => new Map(allDiscs.map(d => [d.id, d])), [allDiscs]);
+  const ownedDiscs = useMemo(() => owned.map(({ uid, discId }) => { const disc = discById.get(discId); return disc ? { ...disc, uid } : null; }).filter(Boolean), [owned, discById]);
+  const ownedByUid = useMemo(() => new Map(ownedDiscs.map(d => [d.uid, d])), [ownedDiscs]);
   const resolvedOwned = useMemo(() => ownedDiscs.map(d => resolveDisc(d, overrides)), [ownedDiscs, overrides]);
   const forSaleDiscs = useMemo(() => resolvedOwned.filter(d => d.forSale), [resolvedOwned]);
   const filteredResolved = useMemo(() => {
@@ -250,10 +253,10 @@ export default function App() {
     const bag = bags.find(b => "bag:" + b.id === flightSourceKey);
     if (!bag) return [];
     return (bag.bagEntries || []).map(e => {
-      const ownedInst = ownedDiscs.find(od => od.uid === e.instanceId);
+      const ownedInst = ownedByUid.get(e.instanceId);
       return ownedInst ? resolveDisc(ownedInst, overrides) : null;
     }).filter(Boolean);
-  }, [flightSourceKey, resolvedOwned, bags, allDiscs, overrides]);
+  }, [flightSourceKey, resolvedOwned, bags, ownedByUid, overrides]);
   const flightSelectedDisc = flightDiscs.find(d => (d.uid ?? d.id) === flightSelected) || null;
 
   const addToOwned = id => setOwned(o => [...o, { uid: genId(), discId: id }]);
@@ -361,7 +364,7 @@ export default function App() {
     const bagForShare = {
       ...bag,
       bagEntries: (bag.bagEntries || []).map(e => {
-        const inst = ownedDiscs.find(od => od.uid === e.instanceId);
+        const inst = ownedByUid.get(e.instanceId);
         return inst ? { entryId: e.entryId, discId: inst.id } : null;
       }).filter(Boolean),
     };
@@ -696,7 +699,7 @@ export default function App() {
                       bagsFlightSourceKey === "owned"
                         ? resolvedOwned
                         : (bags.find(b => "bag:" + b.id === bagsFlightSourceKey)?.bagEntries || [])
-                            .map(e => { const od = ownedDiscs.find(od => od.uid === e.instanceId); return od ? resolveDisc(od, overrides) : null; })
+                            .map(e => { const od = ownedByUid.get(e.instanceId); return od ? resolveDisc(od, overrides) : null; })
                             .filter(Boolean)
                     }
                     selectedId={bagsFlightSelected}

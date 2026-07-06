@@ -128,6 +128,7 @@ VITE_ANTHROPIC_API_KEY
 ## Kendte issues
 
 - Flight labels kan overlappe ved mange tætte discs
+- Fotos ligger stadig som base64 i overrides (Supabase Storage-migration er næste skridt)
 
 ## Arbejdsflow
 
