@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Search, Plus, X, Trash2, AlertCircle, Heart, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
 import { supabase, setUser } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
@@ -18,6 +18,9 @@ import { CreateDiscForm } from "./components/CreateDiscForm";
 import { DiscScanner } from "./components/DiscScanner";
 import { OverflowMenu } from "./components/OverflowMenu";
 import { FlightArcSpinner } from "./components/FlightArc";
+import { useSwipeNav } from "./hooks/useSwipeNav";
+
+const SWIPE_TAB_ORDER = ["db", "owned", "bags"];
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -34,6 +37,12 @@ export default function App() {
   const [brandFilter, setBrandFilter] = useState("Alle");
   const [visibleCount, setVisible] = useState(40);
   const [openBagId, setOpenBagId] = useState(null);
+  const [swipeContainer, setSwipeContainer] = useState(null);
+  const handleSwipeNav = useCallback(nextTab => {
+    setTab(nextTab);
+    if (nextTab !== "bags") setOpenBagId(null);
+  }, []);
+  useSwipeNav(swipeContainer, SWIPE_TAB_ORDER, tab, handleSwipeNav);
   const [showNewChoice, setShowNewChoice] = useState(false);
   const [showGenerator, setShowGenerator] = useState(false);
   const [bagsTab, setBagsTab] = useState("bags"); // "bags" | "compare" | "flight"
@@ -465,6 +474,8 @@ export default function App() {
           </div>
         )}
 
+        <div ref={setSwipeContainer}>
+        <div key={tab} className="tab-transition">
         {/* DATABASE */}
         {tab === "db" && (
           <div>
@@ -747,6 +758,8 @@ export default function App() {
             </div>
           )
         )}
+        </div>
+        </div>
 
         {/* FLIGHT */}
         {tab === "flight" && (

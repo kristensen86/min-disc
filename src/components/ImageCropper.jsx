@@ -112,7 +112,7 @@ export function ImageCropper({ src, onSave, onCancel }) {
   const imgTop = (DISPLAY - imgH) / 2 + offset.y;
 
   return (
-    <div style={{
+    <div data-no-swipe="true" style={{
       position: "fixed", inset: 0, zIndex: 500,
       background: "rgba(5,10,5,0.92)",
       display: "flex", flexDirection: "column", alignItems: "center",

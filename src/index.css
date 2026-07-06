@@ -68,8 +68,16 @@ a:focus-visible {
   animation: draw-path 0.5s ease forwards;
 }
 
+@keyframes tab-transition {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.tab-transition {
+  animation: tab-transition 0.18s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .tap-editable, .tier-bump, .fab-camera, .reveal-panel, .flight-path-draw {
+  .tap-editable, .tier-bump, .fab-camera, .reveal-panel, .flight-path-draw, .tab-transition {
     transition: none !important;
     animation: none !important;
   }

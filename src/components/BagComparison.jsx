@@ -121,7 +121,7 @@ export function BagComparison({ bags, ownedDiscs, allDiscs, overrides, onEditDis
   }
 
   return (
-    <div>
+    <div data-no-swipe="true">
       {sharedIds.size > 0 && (
         <div style={{
           display: "flex", alignItems: "center", gap: 6, marginBottom: 12,

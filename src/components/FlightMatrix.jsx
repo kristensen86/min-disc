@@ -274,7 +274,7 @@ export function FlightMatrix({ discs, selectedId, onSelect, sources = [], source
   }
 
   return (
-    <div>
+    <div data-no-swipe="true">
       {/* Control row — only renders select when sources are provided */}
       <div style={{
         display: "flex", alignItems: "center", gap: 8,

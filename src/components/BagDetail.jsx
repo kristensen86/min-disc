@@ -98,7 +98,7 @@ export function BagDetail({ bag, ownedDiscs, overrides, onBack, onRename, onDele
           </div>
 
           {/* Type filter chips */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "nowrap", overflowX: "auto" }}>
+          <div data-no-swipe="true" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "nowrap", overflowX: "auto" }}>
             {TYPE_FILTERS.map(t => {
               const active = typeFilter === t;
               const color = t === "Alle" ? C.brand : TYPE_COLOR[t];
