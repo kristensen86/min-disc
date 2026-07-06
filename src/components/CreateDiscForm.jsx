@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, TYPES } from "../constants";
 import { genId } from "../utils";
 import { FlightNumberQuad } from "./ui";
+import { PlasticCombobox } from "./PlasticCombobox";
 
 function computeStability(turn, fade) {
   const s = Number(fade) - Number(turn);
@@ -89,7 +90,7 @@ export function CreateDiscForm({ onSave, onCancel }) {
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
           Plast (valgfri)
-          <input value={vals.pPlastic} onChange={e => set("pPlastic")(e.target.value)}
+          <PlasticCombobox value={vals.pPlastic} onChange={set("pPlastic")} brand={vals.brand}
             placeholder="Star, ESP…" style={inp}/>
         </label>
         <label style={{ flex: "0 0 90px", display: "flex", flexDirection: "column", gap: 4, ...lbl }}>

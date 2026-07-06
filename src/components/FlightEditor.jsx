@@ -5,6 +5,7 @@ import { conditionText, suggestSalePrices } from "../utils";
 import { miniBtn, FlightNumberQuad } from "./ui";
 import { ImageCropper } from "./ImageCropper";
 import { MoldPickerModal } from "./MoldPickerModal";
+import { PlasticCombobox } from "./PlasticCombobox";
 
 function hexToRgb(hex){const h=hex.replace("#","");return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 // Worn (C.distance) -> new (C.brand): the slider's own fill/readout double as the condition signal.
@@ -126,7 +127,7 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
             </label>
             <label style={{ display: "flex", flexDirection: "column", gap: 3, ...label, flex: 1 }}>
               Plast
-              <input type="text" value={vals.pPlastic} onChange={e => set("pPlastic")(e.target.value)}
+              <PlasticCombobox value={vals.pPlastic} onChange={set("pPlastic")} brand={disc.brand}
                 placeholder="Star, Z Line…" style={inpStyle}/>
             </label>
           </div>

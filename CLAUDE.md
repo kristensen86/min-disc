@@ -61,6 +61,7 @@ Mere-menu: Salg, Stats, Ønskeliste, Del app
 **Disc data per instans**
 - Flight-tal override (S/G/T/F)
 - Farve, vægt, plast, note
+- Plasttype-felt med autocomplete (`PlasticCombobox.jsx` + `src/data/plastics.js`) — forslag er strengt afgrænset til discens eget mærke når mærket er kendt, ellers fallback til den flade tværgående liste; fritekst virker altid uden tvang til at vælge fra listen
 - Slid-status slider 0-10 med tekst
 - Eget foto med rundt auto-crop
 - Flight-bane pop-up ved tryk på type-badge

@@ -5,6 +5,7 @@ import { resizeImage, conditionText, suggestSalePrices } from "../utils";
 import { btn, miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
 import { FlightArcSpinner } from "./FlightArc";
+import { PlasticCombobox } from "./PlasticCombobox";
 
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
@@ -494,8 +495,8 @@ Svar KUN med JSON:
                 </label>
                 <label style={{ display: "flex", flexDirection: "column", gap: 3, ...lbl, flex: 1 }}>
                   Plast
-                  <input type="text" value={editVals.pPlastic} onChange={e => setEditVals(v => ({ ...v, pPlastic: e.target.value }))}
-                    placeholder="Star, Z Line…" style={inp}/>
+                  <PlasticCombobox value={editVals.pPlastic} onChange={p => setEditVals(v => ({ ...v, pPlastic: p }))}
+                    brand={editVals.brand} placeholder="Star, Z Line…" style={inp}/>
                 </label>
               </div>
 
