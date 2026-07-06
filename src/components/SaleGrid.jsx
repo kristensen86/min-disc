@@ -47,6 +47,7 @@ export function SaleGrid({ orderedDiscs, username }) {
     setGenerating(true);
     setImageUrl(null);
     await document.fonts.ready;
+    const logoImg = await loadImg("/logo-horizontal.png");
 
     const rows = Math.ceil(orderedDiscs.length / COLS);
     const CELL_W = W / COLS;                            // 256px
@@ -68,11 +69,13 @@ export function SaleGrid({ orderedDiscs, username }) {
     // Header
     ctx.fillStyle = "#111811";
     ctx.fillRect(0, 0, W, HEADER_H);
-    ctx.fillStyle = "#4ade80";
-    ctx.font = `bold 28px Pacifico, 'DM Sans', sans-serif`;
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    ctx.fillText("BagUp", 20, HEADER_H / 2 + 1);
+    if (logoImg) {
+      const logoH = 34;
+      const logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
+      ctx.drawImage(logoImg, 20, HEADER_H / 2 + 1 - logoH / 2, logoW, logoH);
+    }
     ctx.fillStyle = "#6b8f6b";
     ctx.font = `500 13px 'DM Sans', sans-serif`;
     ctx.textAlign = "center";

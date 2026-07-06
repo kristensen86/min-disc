@@ -441,7 +441,7 @@ export default function App() {
         {/* Header */}
         <div style={{ background: `linear-gradient(180deg, ${C.surface} 0%, transparent 100%)`, margin: "0 -16px", padding: "20px 16px 18px", marginBottom: 4 }}>
           <header style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h1 style={{ margin: 0, fontFamily: "Pacifico,cursive", fontWeight: 400, fontSize: 30, color: C.brand, lineHeight: 1 }}>BagUp</h1>
+            <img src="/logo-horizontal.png" alt="BagUp" style={{ height: 36, width: "auto", display: "block" }}/>
             <span style={{ marginLeft: "auto", fontSize: 12, color: C.muted, letterSpacing: "0.03em", background: C.raised, border: `1px solid ${C.line}`, padding: "5px 12px", borderRadius: 999 }}>
               {owned.length} discs
             </span>

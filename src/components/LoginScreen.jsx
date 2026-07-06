@@ -44,7 +44,7 @@ export function LoginScreen(){
       <div style={{width:"100%",maxWidth:360}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:36,justifyContent:"center"}}>
           <Disc3 size={28} color={C.brand}/>
-          <span style={{fontFamily:"Pacifico,cursive",fontSize:34,color:C.brand,lineHeight:1}}>BagUp</span>
+          <img src="/logo-horizontal.png" alt="BagUp" style={{ height: 42, width: "auto", display: "block" }}/>
         </div>
         <div style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:18,padding:26,
           boxShadow:`0 0 40px ${C.brand}10`}}>

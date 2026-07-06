@@ -11,7 +11,7 @@ export function SharedBagView({bag,onClose,onAddAll}){
       <div style={{maxWidth:560,margin:"0 auto",padding:"24px 16px 60px"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
           <Disc3 size={22} color={C.brand}/>
-          <span style={{fontFamily:"Pacifico,cursive",fontSize:26,color:C.brand,lineHeight:1}}>BagUp</span>
+          <img src="/logo-horizontal.png" alt="BagUp" style={{ height: 32, width: "auto", display: "block" }}/>
         </div>
         <div style={{fontSize:12,color:C.muted,padding:"6px 12px",marginBottom:22,
           background:C.surface,borderRadius:10,border:`1px solid ${C.line}`,display:"inline-block",
