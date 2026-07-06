@@ -63,11 +63,11 @@ export function SaleGrid({ orderedDiscs, username }) {
     ctx.scale(scale, scale);
 
     // Background
-    ctx.fillStyle = "#0a0f0a";
+    ctx.fillStyle = "#0a0f0d";
     ctx.fillRect(0, 0, W, H);
 
     // Header
-    ctx.fillStyle = "#111811";
+    ctx.fillStyle = "#111815";
     ctx.fillRect(0, 0, W, HEADER_H);
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
@@ -76,7 +76,7 @@ export function SaleGrid({ orderedDiscs, username }) {
       const logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
       ctx.drawImage(logoImg, 20, HEADER_H / 2 + 1 - logoH / 2, logoW, logoH);
     }
-    ctx.fillStyle = "#6b8f6b";
+    ctx.fillStyle = "#6b8f7e";
     ctx.font = `500 13px 'DM Sans', sans-serif`;
     ctx.textAlign = "center";
     ctx.fillText("Salgsliste", W / 2, HEADER_H / 2);
@@ -118,7 +118,7 @@ export function SaleGrid({ orderedDiscs, username }) {
         const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
         ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
       } else {
-        const tc = TYPE_COLORS[d.type] || "#6b8f6b";
+        const tc = TYPE_COLORS[d.type] || "#6b8f7e";
         ctx.fillStyle = tc + "22"; ctx.fill();
         ctx.restore(); ctx.save();
         ctx.fillStyle = tc;
@@ -139,12 +139,12 @@ export function SaleGrid({ orderedDiscs, username }) {
       const tw = ctx.measureText(numText).width;
       const ph = 17, pw = Math.max(tw + 12, 28);
       const px = cx - pr + 2, py = photoTop + 2;
-      ctx.fillStyle = "#0a0f0add";
+      ctx.fillStyle = "#0a0f0ddd";
       roundRect(ctx, px, py, pw, ph, 8); ctx.fill();
-      ctx.strokeStyle = "#4ade8080";
+      ctx.strokeStyle = "#0cb9a780";
       ctx.lineWidth = 0.75;
       roundRect(ctx, px, py, pw, ph, 8); ctx.stroke();
-      ctx.fillStyle = "#4ade80";
+      ctx.fillStyle = "#0cb9a7";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(numText, px + pw / 2, py + ph / 2 + 0.5);
 
@@ -157,19 +157,19 @@ export function SaleGrid({ orderedDiscs, username }) {
       ctx.fillText(nameStr, cx, textTop);
 
       // Price
-      ctx.fillStyle = "#4ade80";
+      ctx.fillStyle = "#0cb9a7";
       ctx.font = `600 ${Math.min(12, Math.floor(CELL_W / 15))}px 'DM Sans', sans-serif`;
       ctx.fillText(salePriceStrShort(d), cx, textTop + 17);
     }
 
     // Footer
     const footerY = H - FOOTER_H;
-    ctx.fillStyle = "#111811";
+    ctx.fillStyle = "#111815";
     ctx.fillRect(0, footerY, W, FOOTER_H);
     ctx.strokeStyle = "#1e2e1e";
     ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.moveTo(0, footerY); ctx.lineTo(W, footerY); ctx.stroke();
-    ctx.fillStyle = "#6b8f6b";
+    ctx.fillStyle = "#6b8f7e";
     ctx.font = `400 11px 'DM Sans', sans-serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("BagUp — disc golf collection tracker", W / 2, footerY + FOOTER_H / 2);

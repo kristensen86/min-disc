@@ -1,11 +1,11 @@
 export const C = {
-  bg:"#0a0f0a",surface:"#111811",raised:"#182018",line:"#1e2e1e",
-  text:"#e8f0e8",muted:"#6b8f6b",brand:"#4ade80",
+  bg:"#0a0f0d",surface:"#111815",raised:"#18201c",line:"#1e2e1e",
+  text:"#e8f0e8",muted:"#6b8f7e",brand:"#0cb9a7",
   putter:"#93c5fd",midrange:"#86efac",fairway:"#fdba74",distance:"#fca5a5",
 };
 export const TYPE_COLOR={Putter:C.putter,Midrange:C.midrange,Fairway:C.fairway,Distance:C.distance};
 
-// Color hierarchy: C.brand (#4ade80) is reserved for interactive/active elements
+// Color hierarchy: C.brand (#0cb9a7) is reserved for interactive/active elements
 // (FAB, active tabs, primary buttons, focus states). Type colors — including
 // Midrange (#86efac), which is close in hue to brand — signal disc data only
 // (badges, bars, charts) and never drive a control. Midrange gets a structurally
@@ -28,7 +28,7 @@ export function typeBarStyle(type){
     ?{background:`${color}25`,border:`1px solid ${color}`,boxShadow:"none"}
     :{background:color,border:"none",boxShadow:`0 0 6px ${color}50`};
 }
-export const TRACE=["#4ade80","#93c5fd","#86efac","#fca5a5","#c084fc","#fdba74","#34d399","#f9a8d4"];
+export const TRACE=["#0cb9a7","#93c5fd","#86efac","#fca5a5","#c084fc","#fdba74","#34d399","#f9a8d4"];
 export const TYPES=["Putter","Midrange","Fairway","Distance"];
 export const DISC_COLORS=["#ff4757","#ff6348","#ffa502","#eccc68","#2ed573","#1e90ff","#a29bfe","#fd79a8","#ffffff","#b2bec3","#636e72","#2d3436"];
 export const WEAR=[["ny","Ny","#86efac"],["brugt","Brugt","#fdba74"],["beat-in","Beat in","#fca5a5"]];

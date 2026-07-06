@@ -333,7 +333,7 @@ export default function App() {
     const shareData = {
       title: "BagUp — Disc Golf Bag Manager",
       text: "Jeg bruger BagUp til at holde styr på mine discs og bags. Prøv det gratis!",
-      url: "https://bagup.vercel.app",
+      url: window.location.origin,
     };
     if (navigator.share) {
       navigator.share(shareData).catch(() => {});
@@ -830,7 +830,7 @@ export default function App() {
         <div style={{
           maxWidth: 560, margin: "0 auto", display: "flex", alignItems: "center",
           height: 64, paddingBottom: "env(safe-area-inset-bottom)",
-          background: "#0a0f0a",
+          background: "#0a0f0d",
           backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
           borderTop: "1px solid rgba(255,255,255,0.06)",
           boxShadow: "0 -4px 24px rgba(0,0,0,0.5)",
@@ -845,9 +845,9 @@ export default function App() {
                 alignItems: "center", justifyContent: "center", gap: 4,
                 background: "transparent", border: "none", cursor: "pointer", position: "relative",
               }}>
-                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#4ade80", boxShadow: "0 0 8px #4ade8090" }}/>}
-                <Icon size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#4ade80" : "#3d5249"}/>
-                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#4ade80" : "#3d5249" }}>{label}</span>
+                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#0cb9a7", boxShadow: "0 0 8px #0cb9a790" }}/>}
+                <Icon size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#0cb9a7" : "#3d5249"}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#0cb9a7" : "#3d5249" }}>{label}</span>
               </button>
             );
           })}
@@ -856,13 +856,13 @@ export default function App() {
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", overflow: "visible" }}>
             <button onClick={() => setShowDbScanner(true)} aria-label="Scan disc" className="fab-camera" style={{
               width: 56, height: 56, borderRadius: "50%", flexShrink: 0,
-              background: "#4ade80", border: "none",
-              boxShadow: "0 4px 20px rgba(74,222,128,0.4)",
+              background: "#0cb9a7", border: "none",
+              boxShadow: "0 4px 20px rgba(12,185,167,0.4)",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transform: "translateY(-12px)",
             }}>
-              <Camera size={24} color="#0a0f0a" strokeWidth={2.2}/>
+              <Camera size={24} color="#0a0f0d" strokeWidth={2.2}/>
             </button>
           </div>
 
@@ -875,9 +875,9 @@ export default function App() {
                 alignItems: "center", justifyContent: "center", gap: 4,
                 background: "transparent", border: "none", cursor: "pointer", position: "relative",
               }}>
-                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#4ade80", boxShadow: "0 0 8px #4ade8090" }}/>}
-                <Icon size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#4ade80" : "#3d5249"}/>
-                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#4ade80" : "#3d5249" }}>{label}</span>
+                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#0cb9a7", boxShadow: "0 0 8px #0cb9a790" }}/>}
+                <Icon size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#0cb9a7" : "#3d5249"}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#0cb9a7" : "#3d5249" }}>{label}</span>
               </button>
             );
           })}
@@ -891,9 +891,9 @@ export default function App() {
                 alignItems: "center", justifyContent: "center", gap: 4,
                 background: "transparent", border: "none", cursor: "pointer", position: "relative",
               }}>
-                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#4ade80", boxShadow: "0 0 8px #4ade8090" }}/>}
-                <MoreHorizontal size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#4ade80" : "#3d5249"}/>
-                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#4ade80" : "#3d5249" }}>Mere</span>
+                {active && <span style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, borderRadius: "0 0 3px 3px", background: "#0cb9a7", boxShadow: "0 0 8px #0cb9a790" }}/>}
+                <MoreHorizontal size={22} strokeWidth={active ? 2.2 : 1.8} color={active ? "#0cb9a7" : "#3d5249"}/>
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.02em", lineHeight: 1, color: active ? "#0cb9a7" : "#3d5249" }}>Mere</span>
               </button>
             );
           })()}

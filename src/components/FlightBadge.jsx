@@ -23,7 +23,7 @@ export function StabilityPill({stability}){
   const map={
     "Very Understable":["#fca5a5","Meget understabil"],
     "Understable":["#fdba74","Understabil"],
-    "Stable":["#4ade80","Stabil"],
+    "Stable":["#0cb9a7","Stabil"],
     "Overstable":["#93c5fd","Overstabil"],
     "Very Overstable":["#c084fc","Meget overstabil"]
   };
