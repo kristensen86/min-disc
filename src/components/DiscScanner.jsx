@@ -7,8 +7,6 @@ import { ImageCropper } from "./ImageCropper";
 import { FlightArcSpinner } from "./FlightArc";
 import { PlasticCombobox } from "./PlasticCombobox";
 
-const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-
 const CONF = {
   high:   { label: "Høj sikkerhed", color: C.brand },
   medium: { label: "Middel sikkerhed", color: "#fdba74" },
@@ -86,13 +84,10 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
     const timeout = setTimeout(() => controller.abort(), 20000);
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/scan", {
         signal: controller.signal,
         method: "POST",
         headers: {
-          "x-api-key": API_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
           "content-type": "application/json",
         },
         body: JSON.stringify({

@@ -13,7 +13,7 @@ og vennerne.
 - localStorage — fallback når ikke logget ind
 - Vercel — hosting, auto-deploy fra GitHub (`kristensen86/min-disc`)
 - discit-api.fly.dev — disc-database (~1000+ molds)
-- Claude Vision API — disc-scanner (`VITE_ANTHROPIC_API_KEY`)
+- Claude Vision API — disc-scanner, kaldes via `/api/scan` (Vercel serverless function, nøgle server-side som `ANTHROPIC_API_KEY`)
 - lucide-react — ikoner
 - PWA — installerbar på hjemmeskærm
 
@@ -110,7 +110,6 @@ saleHistory: [{ discId, name, price, date, buyer? }]
 
 VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
-VITE_ANTHROPIC_API_KEY
 
 ## Backlog — prioriteret
 
