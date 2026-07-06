@@ -530,67 +530,6 @@ export default function App() {
                 style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: C.text, padding: "13px 0", fontSize: 15 }}/>
               {query && <button onClick={() => { setQuery(""); setVisible(40); }} aria-label="Ryd" style={iconBtn(C.muted)}><X size={15}/></button>}
             </div>
-            {showDbScanner && (
-              <DiscScanner
-                allDiscs={allDiscs}
-                onDirectAdd={(result, previewUrl) => {
-                  const nameLow = (result.name || "").toLowerCase();
-                  const brandLow = (result.brand || "").toLowerCase();
-                  const match = allDiscs.find(d =>
-                    d.name.toLowerCase() === nameLow && (!brandLow || d.brand.toLowerCase() === brandLow)
-                  );
-                  const newUid = genId();
-                  const overrideData = {
-                    ...(result.plastic && { pPlastic: result.plastic }),
-                    ...(result.colorHex && { pColor: result.colorHex }),
-                    ...(previewUrl && { pPhoto: previewUrl }),
-                    ...(result.pWeight && { pWeight: result.pWeight }),
-                    ...(result.pNote && { pNote: result.pNote }),
-                    ...(result.forSale && { forSale: result.forSale }),
-                    ...(result.forSale && result.condition != null && { condition: result.condition }),
-                    ...(result.forSale && result.hasInk != null && { hasInk: result.hasInk }),
-                    ...(result.forSale && result.saleMP && { saleMP: result.saleMP }),
-                    ...(result.forSale && result.saleBIN && { saleBIN: result.saleBIN }),
-                    ...(result.forSale && result.saleNote && { saleNote: result.saleNote }),
-                  };
-                  if (match) {
-                    setOwned(o => [...o, { uid: newUid, discId: match.id }]);
-                  } else {
-                    const type = result.type || (result.speed ? typeFromSpeed(Number(result.speed)) : "Distance");
-                    const t = Number(result.turn) || 0, f = Number(result.fade) || 2;
-                    const s = f - t;
-                    const stability = s <= -3 ? "Very Understable" : s <= -1 ? "Understable" : s <= 1 ? "Stable" : s <= 3 ? "Overstable" : "Very Overstable";
-                    const customDisc = {
-                      id: "custom_" + genId(),
-                      name: result.name || "Ukendt disc",
-                      brand: result.brand || "Ukendt",
-                      type, stability, isCustom: true,
-                      speed: Number(result.speed) || 7,
-                      glide: Number(result.glide) || 5,
-                      turn: t, fade: f,
-                    };
-                    setCustomDiscs(c => [...c, customDisc]);
-                    setAllDiscs(d => [...d, customDisc]);
-                    setOwned(o => [...o, { uid: newUid, discId: customDisc.id }]);
-                  }
-                  if (Object.keys(overrideData).length > 0) {
-                    setOverrides(prev => ({ ...prev, [newUid]: overrideData }));
-                  }
-                  setShowDbScanner(false);
-
-                  if (authUser && previewUrl) {
-                    uploadPhoto(newUid, previewUrl)
-                      .then(url => { if (url) setOverrides(prev => prev[newUid] ? { ...prev, [newUid]: { ...prev[newUid], pPhoto: url } } : prev); })
-                      .catch(() => showPhotoError("Foto-upload fejlede — gemt lokalt på enheden"));
-                  }
-                }}
-                onSearchFallback={(name, brand) => {
-                  setQuery([name, brand].filter(Boolean).join(" "));
-                  setVisible(40);
-                  setShowDbScanner(false);
-                }}
-                onClose={() => setShowDbScanner(false)}/>
-            )}
             <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
               {["Alle", ...TYPES].map(t => (
                 <button key={t} onClick={() => { setTypeFilter(t); setVisible(40); }} style={{
@@ -872,6 +811,70 @@ export default function App() {
         )}
 
       </div>
+
+      {/* Disc scanner — overlay, opens from FAB regardless of active tab */}
+      {showDbScanner && (
+        <DiscScanner
+          allDiscs={allDiscs}
+          onDirectAdd={(result, previewUrl) => {
+            const nameLow = (result.name || "").toLowerCase();
+            const brandLow = (result.brand || "").toLowerCase();
+            const match = allDiscs.find(d =>
+              d.name.toLowerCase() === nameLow && (!brandLow || d.brand.toLowerCase() === brandLow)
+            );
+            const newUid = genId();
+            const overrideData = {
+              ...(result.plastic && { pPlastic: result.plastic }),
+              ...(result.colorHex && { pColor: result.colorHex }),
+              ...(previewUrl && { pPhoto: previewUrl }),
+              ...(result.pWeight && { pWeight: result.pWeight }),
+              ...(result.pNote && { pNote: result.pNote }),
+              ...(result.forSale && { forSale: result.forSale }),
+              ...(result.forSale && result.condition != null && { condition: result.condition }),
+              ...(result.forSale && result.hasInk != null && { hasInk: result.hasInk }),
+              ...(result.forSale && result.saleMP && { saleMP: result.saleMP }),
+              ...(result.forSale && result.saleBIN && { saleBIN: result.saleBIN }),
+              ...(result.forSale && result.saleNote && { saleNote: result.saleNote }),
+            };
+            if (match) {
+              setOwned(o => [...o, { uid: newUid, discId: match.id }]);
+            } else {
+              const type = result.type || (result.speed ? typeFromSpeed(Number(result.speed)) : "Distance");
+              const t = Number(result.turn) || 0, f = Number(result.fade) || 2;
+              const s = f - t;
+              const stability = s <= -3 ? "Very Understable" : s <= -1 ? "Understable" : s <= 1 ? "Stable" : s <= 3 ? "Overstable" : "Very Overstable";
+              const customDisc = {
+                id: "custom_" + genId(),
+                name: result.name || "Ukendt disc",
+                brand: result.brand || "Ukendt",
+                type, stability, isCustom: true,
+                speed: Number(result.speed) || 7,
+                glide: Number(result.glide) || 5,
+                turn: t, fade: f,
+              };
+              setCustomDiscs(c => [...c, customDisc]);
+              setAllDiscs(d => [...d, customDisc]);
+              setOwned(o => [...o, { uid: newUid, discId: customDisc.id }]);
+            }
+            if (Object.keys(overrideData).length > 0) {
+              setOverrides(prev => ({ ...prev, [newUid]: overrideData }));
+            }
+            setShowDbScanner(false);
+
+            if (authUser && previewUrl) {
+              uploadPhoto(newUid, previewUrl)
+                .then(url => { if (url) setOverrides(prev => prev[newUid] ? { ...prev, [newUid]: { ...prev[newUid], pPhoto: url } } : prev); })
+                .catch(() => showPhotoError("Foto-upload fejlede — gemt lokalt på enheden"));
+            }
+          }}
+          onSearchFallback={(name, brand) => {
+            setTab("db");
+            setQuery([name, brand].filter(Boolean).join(" "));
+            setVisible(40);
+            setShowDbScanner(false);
+          }}
+          onClose={() => setShowDbScanner(false)}/>
+      )}
 
       {/* Overflow menu */}
       {showOverflow && (
