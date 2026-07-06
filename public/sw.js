@@ -1,9 +1,8 @@
-const CACHE = "bagup-v1";
+const CACHE = "bagup-v2";
 const PRECACHE = ["/", "/index.html"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", e => {
@@ -13,6 +12,10 @@ self.addEventListener("activate", e => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener("message", e => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", e => {

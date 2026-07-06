@@ -19,10 +19,13 @@ import { DiscScanner } from "./components/DiscScanner";
 import { OverflowMenu } from "./components/OverflowMenu";
 import { FlightArcSpinner } from "./components/FlightArc";
 import { useSwipeNav } from "./hooks/useSwipeNav";
+import { useServiceWorkerUpdate } from "./hooks/useServiceWorkerUpdate";
+import { UpdateBanner } from "./components/UpdateBanner";
 
 const SWIPE_TAB_ORDER = ["db", "owned", "bags"];
 
 export default function App() {
+  const { updateReady, applyUpdate } = useServiceWorkerUpdate();
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [allDiscs, setAllDiscs] = useState([]);
@@ -837,6 +840,8 @@ export default function App() {
           onClose={() => setShowOverflow(false)}
         />
       )}
+
+      {updateReady && <UpdateBanner onReload={applyUpdate}/>}
 
       {/* Fixed bottom navigation */}
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, overflow: "visible" }}>
