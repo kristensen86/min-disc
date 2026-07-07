@@ -1,7 +1,7 @@
-import { X, Tag, BarChart2, Bookmark, Share2, LogOut } from "lucide-react";
+import { X, Tag, BarChart2, Bookmark, Share2, Trophy, LogOut } from "lucide-react";
 import { C } from "../constants";
 
-export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, onGoStats, onGoWish, onShare, onLogout, userEmail, onClose }) {
+export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, onGoStats, onGoWish, onGoTournament, onShare, onLogout, userEmail, onClose }) {
   const items = [
     {
       icon: Tag, color: forSaleCount > 0 ? C.brand : C.muted,
@@ -20,6 +20,12 @@ export function OverflowMenu({ ownedCount, wishCount, forSaleCount, onGoSalg, on
       label: "Ønskeliste",
       desc: wishCount > 0 ? `${wishCount} discs på listen` : "Tom ønskeliste",
       onClick: onGoWish,
+    },
+    {
+      icon: Trophy, color: C.brand,
+      label: "Favorit disc",
+      desc: "Find din favorit i en turnering",
+      onClick: onGoTournament,
     },
     {
       icon: Share2, color: C.muted,

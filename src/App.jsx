@@ -17,6 +17,7 @@ import { BagComparison } from "./components/BagComparison";
 import { SalePanel } from "./components/SalePanel";
 import { CreateDiscForm } from "./components/CreateDiscForm";
 import { DiscScanner } from "./components/DiscScanner";
+import { DiscTournament } from "./components/DiscTournament";
 import { OverflowMenu } from "./components/OverflowMenu";
 import { FlightArcSpinner } from "./components/FlightArc";
 import { useSwipeNav } from "./hooks/useSwipeNav";
@@ -64,6 +65,8 @@ export default function App() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDbScanner, setShowDbScanner] = useState(false);
   const [showOverflow, setShowOverflow] = useState(false);
+  const [showTournament, setShowTournament] = useState(false);
+  const [tournamentHistory, setTournamentHistory] = useState([]);
   const [bagsFlightSourceKey, setBagsFlightSourceKey] = useState("owned");
   const [bagsFlightSelected, setBagsFlightSelected] = useState(null);
   const [ownedQuery, setOwnedQuery] = useState("");
@@ -230,6 +233,12 @@ export default function App() {
       if (customData.length > 0) {
         setAllDiscs(prev => [...prev.filter(d => !d.isCustom), ...customData]);
       }
+      let tournamentHistoryData = [];
+      try {
+        let res = await store.get("tournamentHistory");
+        try { if (res?.value) tournamentHistoryData = JSON.parse(res.value); } catch (_) {}
+      } catch (_) {}
+      setTournamentHistory(tournamentHistoryData);
       setDataLoaded(true);
     })();
   }, [authUser, authLoading]);
@@ -242,6 +251,7 @@ export default function App() {
   useDebouncedPersist("saleLists", saleLists, dataLoaded);
   useDebouncedPersist("activeSaleListId", activeSaleListId, dataLoaded);
   useDebouncedPersist("customDiscs", customDiscs, dataLoaded);
+  useDebouncedPersist("tournamentHistory", tournamentHistory, dataLoaded);
   useEffect(() => {
     if (!dataLoaded || !authUser || photoMigrationRan.current) return;
     photoMigrationRan.current = true;
@@ -966,10 +976,23 @@ export default function App() {
           onGoSalg={() => { setTab("salg"); setOpenBagId(null); }}
           onGoStats={() => { setTab("stats"); setOpenBagId(null); }}
           onGoWish={() => { setTab("wish"); setOpenBagId(null); }}
+          onGoTournament={() => setShowTournament(true)}
           onShare={shareApp}
           onLogout={authUser && supabase ? () => supabase.auth.signOut() : null}
           userEmail={authUser?.email}
           onClose={() => setShowOverflow(false)}
+        />
+      )}
+
+      {/* Favorit disc-turnering — overlay, opens from Mere-menuen */}
+      {showTournament && (
+        <DiscTournament
+          resolvedOwned={resolvedOwned}
+          bags={bags}
+          history={tournamentHistory}
+          onSaveHistory={setTournamentHistory}
+          username={authUser?.email}
+          onClose={() => setShowTournament(false)}
         />
       )}
 
