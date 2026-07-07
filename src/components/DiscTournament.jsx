@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Trophy, X, ChevronLeft, ChevronRight, Share2, RotateCcw } from "lucide-react";
+import { Trophy, X, Share2, RotateCcw } from "lucide-react";
 import { C, TYPE_COLOR, TYPES } from "../constants";
 import { btn, Segmented } from "./ui";
 import { FlightBadge } from "./FlightBadge";
@@ -95,117 +95,72 @@ function DiscAvatar({ disc, size }) {
   );
 }
 
-// A single matchup — swipeable "this vs that" card. Remounted per match (via key)
-// so drag state always starts fresh; owns the fly-out exit animation for every
-// trigger path (swipe, tapping the opponent, or the two buttons) so they feel identical.
+// A single matchup — two equally-weighted cards side by side. Tap either to
+// pick it (or swipe the row — right picks the right disc, left picks the
+// left disc); either path lights the winner up and dims the loser for 0.4s
+// before handing off to the next match. Remounted per match (via key) so
+// this local "chosen" state always starts fresh.
 function MatchCard({ discA, discB, onPick }) {
-  const [dragX, setDragX] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const [flyDir, setFlyDir] = useState(null);
+  const [chosen, setChosen] = useState(null); // null | "A" | "B"
   const start = useRef({ x: 0, active: false });
 
-  function commit(dir) {
-    if (flyDir) return;
-    setFlyDir(dir);
-    setTimeout(() => onPick(dir === "right" ? discA : discB), 180);
+  function choose(side) {
+    if (chosen) return;
+    setChosen(side);
+    setTimeout(() => onPick(side === "A" ? discA : discB), 400);
   }
+
   function onDown(e) {
-    if (flyDir) return;
+    if (chosen) return;
     start.current = { x: e.touches ? e.touches[0].clientX : e.clientX, active: true };
-    setDragging(true);
   }
-  function onMove(e) {
-    if (!start.current.active) return;
-    const x = e.touches ? e.touches[0].clientX : e.clientX;
-    setDragX(x - start.current.x);
-  }
-  function onUp() {
+  function onUp(e) {
     if (!start.current.active) return;
     start.current.active = false;
-    setDragging(false);
-    if (Math.abs(dragX) > SWIPE_THRESHOLD) commit(dragX > 0 ? "right" : "left");
-    else setDragX(0);
+    const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const deltaX = x - start.current.x;
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD) choose(deltaX > 0 ? "B" : "A");
   }
 
-  const rotate = dragX / 18;
-  const pickOpacity = Math.min(1, Math.max(0, dragX / SWIPE_THRESHOLD));
-  const skipOpacity = Math.min(1, Math.max(0, -dragX / SWIPE_THRESHOLD));
-  const transform = flyDir
-    ? `translateX(${flyDir === "right" ? 700 : -700}px) rotate(${flyDir === "right" ? 40 : -40}deg)`
-    : `translateX(${dragX}px) rotate(${rotate}deg)`;
+  function cardStyle(side) {
+    const isChosen = chosen === side;
+    const isLoser = chosen && !isChosen;
+    return {
+      flex: "0 1 45%", minWidth: 0, cursor: chosen ? "default" : "pointer",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+      padding: "22px 4px", borderRadius: 18, fontFamily: "inherit", textAlign: "center",
+      background: `linear-gradient(160deg, ${C.surface} 0%, ${C.raised}90 100%)`,
+      border: `2px solid ${isChosen ? C.brand : C.line}`,
+      boxShadow: isChosen ? `0 0 24px ${C.brand}45` : "none",
+      opacity: isLoser ? 0.4 : 1,
+      transform: isChosen ? "scale(1.03)" : "scale(1)",
+      transition: "opacity 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s ease",
+    };
+  }
 
   return (
-    <div>
-      <div
-        onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
-        onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
-        style={{
-          position: "relative", touchAction: "pan-y",
-          transform, transition: dragging ? "none" : "transform 0.22s ease",
-          cursor: dragging ? "grabbing" : "grab", userSelect: "none",
-        }}
-      >
-        <div style={{
-          position: "absolute", top: 18, left: 18, zIndex: 2, padding: "6px 14px", borderRadius: 10,
-          border: `2px solid ${C.brand}`, color: C.brand, fontWeight: 800, fontSize: 13,
-          letterSpacing: "0.05em", transform: "rotate(-12deg)", opacity: pickOpacity,
-        }}>VÆLG</div>
-        <div style={{
-          position: "absolute", top: 18, right: 18, zIndex: 2, padding: "6px 14px", borderRadius: 10,
-          border: `2px solid ${C.distance}`, color: C.distance, fontWeight: 800, fontSize: 13,
-          letterSpacing: "0.05em", transform: "rotate(12deg)", opacity: skipOpacity,
-        }}>SPRING OVER</div>
+    <div
+      onMouseDown={onDown} onMouseUp={onUp} onMouseLeave={onUp}
+      onTouchStart={onDown} onTouchEnd={onUp}
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", touchAction: "pan-y" }}
+    >
+      <button onClick={() => choose("A")} disabled={!!chosen} style={cardStyle("A")}>
+        <DiscAvatar disc={discA} size={100}/>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{discA.name}</div>
+        <div style={{ fontSize: 13, color: C.muted }}>{discA.brand}</div>
+        <FlightBadge disc={discA}/>
+      </button>
 
-        <div style={{
-          background: `linear-gradient(160deg, ${C.surface} 0%, ${C.raised}90 100%)`,
-          border: `1px solid ${C.line}`, borderRadius: 22, padding: "30px 20px 24px",
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-        }}>
-          <DiscAvatar disc={discA} size={180}/>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.text, textAlign: "center" }}>{discA.name}</div>
-          <div style={{ fontSize: 13, color: C.muted }}>{discA.brand} · {discA.type}</div>
-          <FlightBadge disc={discA}/>
-          {discA.pNote && (
-            <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic", textAlign: "center" }}>{discA.pNote}</div>
-          )}
-        </div>
+      <div style={{ flex: "0 0 10%", display: "flex", justifyContent: "center" }}>
+        <span className="winner-pulse" style={{ fontSize: 20, fontWeight: 800, color: C.brand, letterSpacing: "0.02em" }}>VS</span>
       </div>
 
-      {discB && (
-        <>
-          <div style={{
-            textAlign: "center", fontSize: 12, color: C.muted, fontWeight: 700,
-            letterSpacing: "0.1em", margin: "14px 0",
-          }}>VS</div>
-
-          <button onClick={() => commit("left")} style={{
-            display: "flex", alignItems: "center", gap: 12, width: "100%",
-            padding: "10px 12px", borderRadius: 14, cursor: "pointer",
-            border: `1px solid ${C.line}`, background: "transparent", textAlign: "left",
-          }}>
-            <DiscAvatar disc={discB} size={60}/>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{discB.name}</div>
-              <div style={{ fontSize: 11.5, color: C.muted }}>{discB.brand} · {discB.type}</div>
-            </div>
-          </button>
-
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button onClick={() => commit("left")} style={{
-              flex: 1, ...btn(), display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            }}>
-              <ChevronLeft size={16}/> Vælg modstander
-            </button>
-            <button onClick={() => commit("right")} style={{
-              flex: 1, ...btn("primary"), border: `1px solid ${C.brand}`,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            }}>
-              Vælg dette <ChevronRight size={16}/>
-            </button>
-          </div>
-        </>
-      )}
+      <button onClick={() => choose("B")} disabled={!!chosen} style={cardStyle("B")}>
+        <DiscAvatar disc={discB} size={100}/>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{discB.name}</div>
+        <div style={{ fontSize: 13, color: C.muted }}>{discB.brand}</div>
+        <FlightBadge disc={discB}/>
+      </button>
     </div>
   );
 }
