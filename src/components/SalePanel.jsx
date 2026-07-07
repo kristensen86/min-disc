@@ -8,6 +8,7 @@ function gridNum(i) { const r = Math.floor(i / SALE_COLS) + 1, c = (i % SALE_COL
 import { Empty } from "./ui";
 import { SaleGrid } from "./SaleGrid";
 import { SaleHistory } from "./SaleHistory";
+import { SaleTextGenerator } from "./SaleTextGenerator";
 
 function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit }) {
   const cond = disc.condition ?? 8;
@@ -119,6 +120,7 @@ function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver
 export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdit, username, soldHistory, onClearHistory }) {
   const [draggingUid, setDraggingUid] = useState(null);
   const [dragOverUid, setDragOverUid] = useState(null);
+  const [showTextGenerator, setShowTextGenerator] = useState(false);
 
   const orderedDiscs = useMemo(() => {
     const validUids = saleOrder.filter(uid => forSaleDiscs.some(d => d.uid === uid));
@@ -199,15 +201,16 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
             <span style={{ fontSize: 11, color: C.muted, opacity: 0.7 }}>Træk for at sortere</span>
           </div>
 
+          <button onClick={shareList} style={{
+            padding: "11px 0", borderRadius: 13, cursor: "pointer",
+            border: `1px solid ${C.brand}`, background: C.raised,
+            color: C.text, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
+            boxShadow: `0 2px 12px ${C.brand}18`,
+          }}>
+            ↗ Del liste
+          </button>
+
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={shareList} style={{
-              flex: 1, padding: "11px 0", borderRadius: 13, cursor: "pointer",
-              border: `1px solid ${C.brand}`, background: C.raised,
-              color: C.text, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
-              boxShadow: `0 2px 12px ${C.brand}18`,
-            }}>
-              ↗ Del liste
-            </button>
             <button onClick={copyList} style={{
               flex: 1, padding: "11px 0", borderRadius: 13, cursor: "pointer",
               border: `1px solid ${C.line}`, background: "transparent",
@@ -215,7 +218,18 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
             }}>
               📋 Kopier
             </button>
+            <button onClick={() => setShowTextGenerator(true)} style={{
+              flex: 1, padding: "11px 0", borderRadius: 13, cursor: "pointer",
+              border: `1px solid ${C.line}`, background: "transparent",
+              color: C.muted, fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
+            }}>
+              ✨ Generer salgstekst
+            </button>
           </div>
+
+          {showTextGenerator && (
+            <SaleTextGenerator forSaleDiscs={orderedDiscs} onClose={() => setShowTextGenerator(false)}/>
+          )}
 
           <SaleGrid orderedDiscs={orderedDiscs} username={username}/>
 
