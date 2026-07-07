@@ -6,6 +6,7 @@ import { resizeImage, conditionText, suggestSalePrices } from "../utils";
 import { enhancePhoto } from "../photoEnhance";
 import { btn, miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
+import { ImageAdjuster } from "./ImageAdjuster";
 import { FlightArcSpinner } from "./FlightArc";
 import { PlasticCombobox } from "./PlasticCombobox";
 
@@ -127,13 +128,15 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [croppedOriginal, setCroppedOriginal] = useState(null); // cropped, un-enhanced
   const [croppedEnhanced, setCroppedEnhanced] = useState(null); // cropped + auto-enhanced
   const [useEnhanced, setUseEnhanced] = useState(true);
+  const [manualPreview, setManualPreview] = useState(null); // overrides both, once the user fine-tunes via ImageAdjuster
+  const [showAdjuster, setShowAdjuster] = useState(false);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const [cropperSrc, setCropperSrc] = useState(null);
   const inputRef = useRef();
 
-  const activePreview = useEnhanced ? (croppedEnhanced || croppedOriginal) : croppedOriginal;
+  const activePreview = manualPreview || (useEnhanced ? (croppedEnhanced || croppedOriginal) : croppedOriginal);
 
   async function handleFile(file) {
     if (!file) return;
@@ -221,6 +224,7 @@ Svar KUN med JSON:
       setCroppedOriginal(finalPreview);
       setCroppedEnhanced(await enhancePhoto(finalPreview));
       setUseEnhanced(true);
+      setManualPreview(null);
       setResult(parsed);
       setPhase("confirm");
     } catch (e) {
@@ -315,6 +319,16 @@ Svar KUN med JSON:
               setEditVals(v => ({ ...v, pPhoto: enhanced }));
             }}
             onCancel={() => setCropperSrc(null)}
+          />
+        )}
+
+        {/* ImageAdjuster overlay — fine-tune the confirm-phase photo */}
+        {showAdjuster && activePreview && (
+          <ImageAdjuster
+            src={activePreview}
+            resetSrc={croppedOriginal}
+            onSave={dataUrl => { setManualPreview(dataUrl); setShowAdjuster(false); }}
+            onCancel={() => setShowAdjuster(false)}
           />
         )}
 
@@ -434,7 +448,7 @@ Svar KUN med JSON:
               </div>
             </div>
 
-            {croppedOriginal && (
+            {croppedOriginal && !manualPreview && (
               <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 14 }}>
                 {[[false, "Original"], [true, "Forbedret ✓"]].map(([val, label]) => (
                   <button key={String(val)} onClick={() => setUseEnhanced(val)} style={{
@@ -444,6 +458,17 @@ Svar KUN med JSON:
                     color: useEnhanced === val ? C.brand : C.muted,
                   }}>{label}</button>
                 ))}
+              </div>
+            )}
+
+            {activePreview && (
+              <div style={{ textAlign: "center", marginBottom: 14 }}>
+                <button onClick={() => setShowAdjuster(true)} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: C.muted, fontSize: 12, textDecoration: "underline", padding: 4,
+                }}>
+                  Juster billede
+                </button>
               </div>
             )}
 
@@ -706,6 +731,7 @@ Svar KUN med JSON:
               <button onClick={() => {
                 setPhase("idle"); setPreview(null);
                 setCroppedOriginal(null); setCroppedEnhanced(null); setUseEnhanced(true);
+                setManualPreview(null);
               }} style={btn()}>Prøv igen</button>
               <button onClick={() => onSearchFallback("", "")} style={{ ...btn("primary"), border: `1px solid ${C.brand}` }}>
                 Manuel søgning

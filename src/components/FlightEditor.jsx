@@ -5,6 +5,7 @@ import { conditionText, suggestSalePrices } from "../utils";
 import { enhancePhoto } from "../photoEnhance";
 import { miniBtn, FlightNumberQuad } from "./ui";
 import { ImageCropper } from "./ImageCropper";
+import { ImageAdjuster } from "./ImageAdjuster";
 import { MoldPickerModal } from "./MoldPickerModal";
 import { PlasticCombobox } from "./PlasticCombobox";
 
@@ -31,6 +32,7 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
   });
   const set = k => v => setVals(p => ({ ...p, [k]: v }));
   const [cropperSrc, setCropperSrc] = useState(null);
+  const [showAdjuster, setShowAdjuster] = useState(false);
 
   function handlePhotoSelect(e) {
     const file = e.target.files?.[0];
@@ -52,6 +54,14 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
             set("pPhoto")(await enhancePhoto(dataUrl));
           }}
           onCancel={() => setCropperSrc(null)}
+        />
+      )}
+
+      {showAdjuster && vals.pPhoto && (
+        <ImageAdjuster
+          src={vals.pPhoto}
+          onSave={dataUrl => { set("pPhoto")(dataUrl); setShowAdjuster(false); }}
+          onCancel={() => setShowAdjuster(false)}
         />
       )}
 
@@ -94,6 +104,7 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
             {vals.pPhoto ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <img src={vals.pPhoto} alt="disc" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: `1px solid ${C.line}` }}/>
+                <button onClick={() => setShowAdjuster(true)} style={miniBtn(C.muted)}>Juster</button>
                 <button onClick={() => set("pPhoto")(null)} style={miniBtn(C.distance)}>Fjern</button>
               </div>
             ) : (
