@@ -33,7 +33,13 @@ function cropDisc(dataUrl, discPos) {
         const cx = (centerX / 100) * img.width;
         const cy = (centerY / 100) * img.height;
         const r  = (radius  / 100) * img.width;
-        const side = r * 2 - 2; // 1px inside disc edge, no air
+        const side = r * 2 * 1.35; // generous padding so the disc edge is never clipped
+
+        // Clamp the crop square to the image bounds — shrink to fit, then shift
+        // (not re-center) so we never sample outside the image.
+        const safeSize = Math.min(side, img.width, img.height);
+        const safeX = Math.min(Math.max(0, cx - safeSize / 2), img.width - safeSize);
+        const safeY = Math.min(Math.max(0, cy - safeSize / 2), img.height - safeSize);
 
         const size = 400;
         const canvas = document.createElement("canvas");
@@ -51,7 +57,7 @@ function cropDisc(dataUrl, discPos) {
 
         ctx.drawImage(
           img,
-          cx - side / 2, cy - side / 2, side, side,
+          safeX, safeY, safeSize, safeSize,
           0, 0, size, size,
         );
 
