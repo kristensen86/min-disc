@@ -9,8 +9,9 @@ import { Empty } from "./ui";
 import { SaleGrid } from "./SaleGrid";
 import { SaleHistory } from "./SaleHistory";
 import { SaleTextGenerator } from "./SaleTextGenerator";
+import { SaleListSwitcher } from "./SaleListSwitcher";
 
-function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit }) {
+function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onSold, onEdit, disabled }) {
   const cond = disc.condition ?? 8;
   const num = gridNum(index);
   const priceStr = disc.saleBIN || disc.price
@@ -27,11 +28,11 @@ function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver
 
   return (
     <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
+      draggable={!disabled}
+      onDragStart={disabled ? undefined : onDragStart}
+      onDragOver={disabled ? undefined : onDragOver}
+      onDrop={disabled ? undefined : onDrop}
+      onDragEnd={disabled ? undefined : onDragEnd}
       style={{
         display: "flex", alignItems: "center", gap: 10,
         padding: "13px 14px",
@@ -40,12 +41,12 @@ function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver
         borderRadius: 14,
         opacity: isDragging ? 0.45 : 1,
         boxShadow: isDragOver ? `0 0 16px ${C.brand}25` : `0 0 10px ${C.brand}05`,
-        cursor: "grab",
+        cursor: disabled ? "default" : "grab",
         userSelect: "none",
         transition: "border-color 0.1s, background 0.1s",
       }}
     >
-      <div style={{ color: C.muted, flexShrink: 0, opacity: 0.5 }}>
+      <div style={{ color: C.muted, flexShrink: 0, opacity: disabled ? 0 : 0.5 }}>
         <GripVertical size={16}/>
       </div>
 
@@ -103,24 +104,31 @@ function SaleCard({ disc, index, isDragging, isDragOver, onDragStart, onDragOver
               color: C.brand, fontWeight: 600, letterSpacing: "0.03em",
             }}
           >✎ Rediger</button>
-          <button
-            onClick={e => { e.stopPropagation(); handleSold(); }}
-            style={{
-              fontSize: 11, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
-              background: `${C.midrange}14`, border: `1px solid ${C.midrange}40`,
-              color: C.midrange, fontWeight: 600, letterSpacing: "0.03em",
-            }}
-          >Solgt ✓</button>
+          {!disabled && (
+            <button
+              onClick={e => { e.stopPropagation(); handleSold(); }}
+              style={{
+                fontSize: 11, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+                background: `${C.midrange}14`, border: `1px solid ${C.midrange}40`,
+                color: C.midrange, fontWeight: 600, letterSpacing: "0.03em",
+              }}
+            >Solgt ✓</button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdit, username, soldHistory, onClearHistory }) {
+export function SalePanel({
+  forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdit, username, soldHistory, onClearHistory,
+  saleLists, activeSaleListId, onSwitchList, onCreateList, onArchiveList, onReactivateList,
+}) {
   const [draggingUid, setDraggingUid] = useState(null);
   const [dragOverUid, setDragOverUid] = useState(null);
   const [showTextGenerator, setShowTextGenerator] = useState(false);
+  const activeList = saleLists.find(l => l.id === activeSaleListId) || null;
+  const isArchived = activeList?.status === "archived";
 
   const orderedDiscs = useMemo(() => {
     const validUids = saleOrder.filter(uid => forSaleDiscs.some(d => d.uid === uid));
@@ -181,14 +189,21 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
     }
   }
 
-  if (forSaleDiscs.length === 0 && (!soldHistory || soldHistory.length === 0)) {
-    return (
-      <Empty text="Ingen discs til salg endnu. Åbn ✎ på en disc i Mine discs, og markér den som til salg."/>
-    );
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <SaleListSwitcher
+        saleLists={saleLists}
+        activeSaleListId={activeSaleListId}
+        onSwitch={onSwitchList}
+        onCreate={onCreateList}
+        onArchive={onArchiveList}
+        onReactivate={onReactivateList}
+      />
+
+      {forSaleDiscs.length === 0 && (
+        <Empty text="Ingen discs på denne liste endnu. Åbn ✎ på en disc i Mine discs, og markér den som til salg."/>
+      )}
+
       {forSaleDiscs.length > 0 && (
         <>
           <div style={{
@@ -198,7 +213,7 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
             <span style={{ fontSize: 13, color: C.muted, letterSpacing: "0.01em" }}>
               {orderedDiscs.length} disc{orderedDiscs.length !== 1 ? "s" : ""} til salg
             </span>
-            <span style={{ fontSize: 11, color: C.muted, opacity: 0.7 }}>Træk for at sortere</span>
+            {!isArchived && <span style={{ fontSize: 11, color: C.muted, opacity: 0.7 }}>Træk for at sortere</span>}
           </div>
 
           <button onClick={shareList} style={{
@@ -252,6 +267,7 @@ export function SalePanel({ forSaleDiscs, saleOrder, setSaleOrder, onSold, onEdi
                 onDragEnd={() => { setDraggingUid(null); setDragOverUid(null); }}
                 onSold={buyer => onSold(d.uid, buyer)}
                 onEdit={() => onEdit(d.uid)}
+                disabled={isArchived}
               />
             ))}
           </div>

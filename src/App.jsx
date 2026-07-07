@@ -57,8 +57,9 @@ export default function App() {
   const [editingDiscUid, setEditingDiscUid] = useState(null);
   const [wishlist, setWishlist] = useState([]);
   const [showOnlyWishlist, setShowOnlyWishlist] = useState(false);
-  const [saleOrder, setSaleOrder] = useState([]);
   const [soldHistory, setSoldHistory] = useState([]);
+  const [saleLists, setSaleLists] = useState([]);
+  const [activeSaleListId, setActiveSaleListId] = useState(null);
   const [customDiscs, setCustomDiscs] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDbScanner, setShowDbScanner] = useState(false);
@@ -89,7 +90,8 @@ export default function App() {
       setUser(u); setAuthUser(u);
       if (!u) {
         setDataLoaded(false);
-        setOwned([]); setBags([]); setOverrides({}); setWishlist([]); setSaleOrder([]);
+        setOwned([]); setBags([]); setOverrides({}); setWishlist([]);
+        setSaleLists([]); setActiveSaleListId(null);
       }
     });
     return () => subscription.unsubscribe();
@@ -191,13 +193,34 @@ export default function App() {
         let res = await store.get("saleOrder");
         try { if (res?.value) saleOrderData = JSON.parse(res.value); } catch (_) {}
       } catch (_) {}
-      setSaleOrder(saleOrderData);
       let historyData = [];
       try {
         let res = await store.get("saleHistory");
         try { if (res?.value) historyData = JSON.parse(res.value); } catch (_) {}
       } catch (_) {}
       setSoldHistory(historyData);
+      let saleListsData = null;
+      try {
+        let res = await store.get("saleLists");
+        try { if (res?.value) saleListsData = JSON.parse(res.value); } catch (_) {}
+      } catch (_) {}
+      let activeSaleListIdData = null;
+      try {
+        let res = await store.get("activeSaleListId");
+        try { if (res?.value) activeSaleListIdData = JSON.parse(res.value); } catch (_) {}
+      } catch (_) {}
+      if (!saleListsData || saleListsData.length === 0) {
+        const defaultList = {
+          id: genId(), name: "Standard salgsliste", createdAt: new Date().toISOString(),
+          status: "active", items: saleOrderData,
+        };
+        saleListsData = [defaultList];
+        activeSaleListIdData = defaultList.id;
+        store.set("saleLists", JSON.stringify(saleListsData)).catch(() => {});
+        store.set("activeSaleListId", JSON.stringify(activeSaleListIdData)).catch(() => {});
+      }
+      setSaleLists(saleListsData);
+      setActiveSaleListId(activeSaleListIdData);
       let customData = [];
       try {
         let res = await store.get("customDiscs");
@@ -215,8 +238,9 @@ export default function App() {
   useDebouncedPersist("overrides", overrides, dataLoaded);
   useDebouncedPersist("bags", bags, dataLoaded);
   useDebouncedPersist("wishlist", wishlist, dataLoaded);
-  useDebouncedPersist("saleOrder", saleOrder, dataLoaded);
   useDebouncedPersist("saleHistory", soldHistory, dataLoaded);
+  useDebouncedPersist("saleLists", saleLists, dataLoaded);
+  useDebouncedPersist("activeSaleListId", activeSaleListId, dataLoaded);
   useDebouncedPersist("customDiscs", customDiscs, dataLoaded);
   useEffect(() => {
     if (!dataLoaded || !authUser || photoMigrationRan.current) return;
@@ -251,7 +275,12 @@ export default function App() {
   const ownedDiscs = useMemo(() => owned.map(({ uid, discId }) => { const disc = discById.get(discId); return disc ? { ...disc, uid } : null; }).filter(Boolean), [owned, discById]);
   const ownedByUid = useMemo(() => new Map(ownedDiscs.map(d => [d.uid, d])), [ownedDiscs]);
   const resolvedOwned = useMemo(() => ownedDiscs.map(d => resolveDisc(d, overrides)), [ownedDiscs, overrides]);
-  const forSaleDiscs = useMemo(() => resolvedOwned.filter(d => d.forSale), [resolvedOwned]);
+  const activeSaleList = useMemo(() => saleLists.find(l => l.id === activeSaleListId) || null, [saleLists, activeSaleListId]);
+  const forSaleDiscs = useMemo(() => {
+    if (!activeSaleList) return [];
+    const byUid = new Map(resolvedOwned.map(d => [d.uid, d]));
+    return activeSaleList.items.map(uid => byUid.get(uid)).filter(Boolean);
+  }, [resolvedOwned, activeSaleList]);
   const filteredResolved = useMemo(() => {
     if (!ownedQuery.trim()) return resolvedOwned;
     const q = ownedQuery.trim().toLowerCase();
@@ -288,20 +317,68 @@ export default function App() {
   function removeFromOwned(uid) {
     if (isStoredPhoto(overrides[uid]?.pPhoto)) deletePhoto(uid).catch(() => {});
     setOwned(o => o.filter(x => x.uid !== uid));
+    removeUidFromAllSaleLists(uid);
   }
   const changeDiscMold = (uid, newDiscId) => setOwned(o => o.map(x => x.uid === uid ? { ...x, discId: newDiscId } : x));
   const addToWishlist = id => setWishlist(w => w.includes(id) ? w : [...w, id]);
   const removeFromWishlist = id => setWishlist(w => w.filter(x => x !== id));
 
+  function removeUidFromAllSaleLists(uid) {
+    setSaleLists(ls => ls.map(l => l.items.includes(uid) ? { ...l, items: l.items.filter(x => x !== uid) } : l));
+  }
+  function addUidToSaleList(listId, uid) {
+    setSaleLists(ls => ls.map(l => l.id === listId && !l.items.includes(uid) ? { ...l, items: [...l.items, uid] } : l));
+  }
+  // Resolves which list a newly-marked-for-sale disc should join: the currently
+  // displayed list if it's still active, otherwise any active list, otherwise a fresh one.
+  function ensureTargetSaleListId() {
+    const current = saleLists.find(l => l.id === activeSaleListId);
+    if (current?.status === "active") return current.id;
+    const anyActive = saleLists.find(l => l.status === "active");
+    if (anyActive) return anyActive.id;
+    const newList = { id: genId(), name: "Salgsliste", createdAt: new Date().toISOString(), status: "active", items: [] };
+    setSaleLists(ls => [...ls, newList]);
+    setActiveSaleListId(newList.id);
+    return newList.id;
+  }
+  function switchSaleList(listId) { setActiveSaleListId(listId); }
+  function setActiveSaleListItems(newItems) {
+    if (!activeSaleList) return;
+    setSaleLists(ls => ls.map(l => l.id === activeSaleList.id ? { ...l, items: newItems } : l));
+  }
+  function createSaleList(name) {
+    const newList = { id: genId(), name, createdAt: new Date().toISOString(), status: "active", items: [] };
+    setSaleLists(ls => [...ls, newList]);
+    setActiveSaleListId(newList.id);
+  }
+  function archiveSaleList(listId) {
+    setSaleLists(ls => ls.map(l => l.id === listId ? { ...l, status: "archived" } : l));
+  }
+  function reactivateSaleList(listId, reducePrices) {
+    setSaleLists(ls => ls.map(l => l.id === listId ? { ...l, status: "active" } : l));
+    setActiveSaleListId(listId);
+    if (reducePrices) {
+      const list = saleLists.find(l => l.id === listId);
+      if (list) {
+        setOverrides(o => {
+          const next = { ...o };
+          list.items.forEach(uid => {
+            const bin = Number(next[uid]?.saleBIN);
+            if (next[uid] && bin > 0) next[uid] = { ...next[uid], saleBIN: String(Math.round(bin * 0.9)) };
+          });
+          return next;
+        });
+      }
+    }
+  }
+
   function saveOverride(uid, vals) {
     const prevPhoto = overrides[uid]?.pPhoto;
-    setOverrides(o => {
-      const wasForSale = o[uid]?.forSale;
-      const isNowForSale = vals.forSale;
-      if (isNowForSale && !wasForSale) setSaleOrder(s => s.includes(uid) ? s : [...s, uid]);
-      else if (!isNowForSale && wasForSale) setSaleOrder(s => s.filter(id => id !== uid));
-      return { ...o, [uid]: vals };
-    });
+    const wasForSale = overrides[uid]?.forSale;
+    const isNowForSale = vals.forSale;
+    if (isNowForSale && !wasForSale) addUidToSaleList(ensureTargetSaleListId(), uid);
+    else if (!isNowForSale && wasForSale) removeUidFromAllSaleLists(uid);
+    setOverrides(o => ({ ...o, [uid]: vals }));
     setEditingDiscUid(null);
 
     if (authUser && vals.pPhoto?.startsWith?.("data:")) {
@@ -315,28 +392,26 @@ export default function App() {
   function clearOverride(uid) {
     if (isStoredPhoto(overrides[uid]?.pPhoto)) deletePhoto(uid).catch(() => {});
     setOverrides(o => { const n = { ...o }; delete n[uid]; return n; });
-    setSaleOrder(s => s.filter(id => id !== uid));
+    removeUidFromAllSaleLists(uid);
     setEditingDiscUid(null);
   }
   function toggleForSale(uid) {
-    setOverrides(o => {
-      const cur = o[uid] || {};
-      const nowForSale = !cur.forSale;
-      if (nowForSale) setSaleOrder(s => s.includes(uid) ? s : [...s, uid]);
-      else setSaleOrder(s => s.filter(id => id !== uid));
-      return {
-        ...o, [uid]: {
-          ...cur, forSale: nowForSale,
-          condition: cur.condition ?? 8,
-          hasInk: cur.hasInk ?? false,
-          saleMP: cur.saleMP ?? "",
-          saleBIN: cur.saleBIN || cur.price || "",
-          saleNote: cur.saleNote ?? "",
-          saleGroup: cur.saleGroup ?? "",
-          salePos: cur.salePos ?? "",
-        }
-      };
-    });
+    const cur = overrides[uid] || {};
+    const nowForSale = !cur.forSale;
+    if (nowForSale) addUidToSaleList(ensureTargetSaleListId(), uid);
+    else removeUidFromAllSaleLists(uid);
+    setOverrides(o => ({
+      ...o, [uid]: {
+        ...cur, forSale: nowForSale,
+        condition: cur.condition ?? 8,
+        hasInk: cur.hasInk ?? false,
+        saleMP: cur.saleMP ?? "",
+        saleBIN: cur.saleBIN || cur.price || "",
+        saleNote: cur.saleNote ?? "",
+        saleGroup: cur.saleGroup ?? "",
+        salePos: cur.salePos ?? "",
+      }
+    }));
   }
   function openEditForDisc(uid) {
     setOwnedQuery("");
@@ -360,7 +435,7 @@ export default function App() {
       }]);
     }
     setOverrides(o => ({ ...o, [uid]: { ...(o[uid] || {}), forSale: false } }));
-    setSaleOrder(s => s.filter(id => id !== uid));
+    removeUidFromAllSaleLists(uid);
   }
 
   function createCustomDisc(disc) {
@@ -375,11 +450,10 @@ export default function App() {
     const removedUids = new Set(owned.filter(x => x.discId === id).map(x => x.uid));
     removedUids.forEach(uid => { if (isStoredPhoto(overrides[uid]?.pPhoto)) deletePhoto(uid).catch(() => {}); });
     setBags(bs => bs.map(b => ({ ...b, bagEntries: (b.bagEntries || []).filter(e => !removedUids.has(e.instanceId)) })));
-    setOwned(prev => {
-      const toRemove = new Set(prev.filter(x => x.discId === id).map(x => x.uid));
-      if (toRemove.size > 0) setSaleOrder(s => s.filter(uid => !toRemove.has(uid)));
-      return prev.filter(x => x.discId !== id);
-    });
+    setOwned(prev => prev.filter(x => x.discId !== id));
+    if (removedUids.size > 0) {
+      setSaleLists(ls => ls.map(l => ({ ...l, items: l.items.filter(uid => !removedUids.has(uid)) })));
+    }
   }
 
   const [shareCopied, setShareCopied] = useState(false);
@@ -781,13 +855,19 @@ export default function App() {
         {tab === "salg" && (
           <SalePanel
             forSaleDiscs={forSaleDiscs}
-            saleOrder={saleOrder}
-            setSaleOrder={setSaleOrder}
+            saleOrder={activeSaleList?.items || []}
+            setSaleOrder={setActiveSaleListItems}
             onSold={markAsSold}
             onEdit={openEditForDisc}
             username={authUser?.email}
             soldHistory={soldHistory}
             onClearHistory={() => setSoldHistory([])}
+            saleLists={saleLists}
+            activeSaleListId={activeSaleListId}
+            onSwitchList={switchSaleList}
+            onCreateList={createSaleList}
+            onArchiveList={archiveSaleList}
+            onReactivateList={reactivateSaleList}
           />
         )}
 
@@ -859,6 +939,7 @@ export default function App() {
             if (Object.keys(overrideData).length > 0) {
               setOverrides(prev => ({ ...prev, [newUid]: overrideData }));
             }
+            if (result.forSale) addUidToSaleList(ensureTargetSaleListId(), newUid);
             setShowDbScanner(false);
 
             if (authUser && previewUrl) {
