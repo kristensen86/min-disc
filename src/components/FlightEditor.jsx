@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { C, DISC_COLORS } from "../constants";
 import { conditionText, suggestSalePrices } from "../utils";
+import { enhancePhoto } from "../photoEnhance";
 import { miniBtn, FlightNumberQuad } from "./ui";
 import { ImageCropper } from "./ImageCropper";
 import { MoldPickerModal } from "./MoldPickerModal";
@@ -46,7 +47,10 @@ export function FlightEditor({ disc, override, onSave, onClear, onClose, allDisc
       {cropperSrc && (
         <ImageCropper
           src={cropperSrc}
-          onSave={dataUrl => { set("pPhoto")(dataUrl); setCropperSrc(null); }}
+          onSave={async dataUrl => {
+            setCropperSrc(null);
+            set("pPhoto")(await enhancePhoto(dataUrl));
+          }}
           onCancel={() => setCropperSrc(null)}
         />
       )}

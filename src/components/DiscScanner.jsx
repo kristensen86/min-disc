@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { X, Camera, Check, Search, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage, conditionText, suggestSalePrices } from "../utils";
+import { enhancePhoto } from "../photoEnhance";
 import { btn, miniBtn } from "./ui";
 import { ImageCropper } from "./ImageCropper";
 import { FlightArcSpinner } from "./FlightArc";
@@ -30,10 +31,16 @@ function cropDisc(dataUrl, discPos) {
           centerX = 50; centerY = 50; radius = 40;
         }
 
+        // Clamp the disc's bounding box so it never extends past the image edges
+        if (centerX - radius < 0) radius = centerX;
+        if (centerY - radius < 0) radius = Math.min(radius, centerY);
+        if (centerX + radius > 100) radius = Math.min(radius, 100 - centerX);
+        if (centerY + radius > 100) radius = Math.min(radius, 100 - centerY);
+
         const cx = (centerX / 100) * img.width;
         const cy = (centerY / 100) * img.height;
         const r  = (radius  / 100) * img.width;
-        const side = r * 2 * 1.35; // generous padding so the disc edge is never clipped
+        const side = r * 2 * 1.08; // tight padding so the disc fills the frame
 
         // Clamp the crop square to the image bounds — shrink to fit, then shift
         // (not re-center) so we never sample outside the image.
@@ -55,6 +62,9 @@ function cropDisc(dataUrl, discPos) {
         ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
         ctx.clip();
 
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
         ctx.drawImage(
           img,
           safeX, safeY, safeSize, safeSize,
@@ -71,12 +81,17 @@ function cropDisc(dataUrl, discPos) {
 
 export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }) {
   const [phase, setPhase] = useState("idle"); // idle | scanning | confirm | editing | error
-  const [preview, setPreview] = useState(null);   // shown in scanning (original) then confirm (cropped)
+  const [preview, setPreview] = useState(null);   // raw image shown (dimmed) during scanning
+  const [croppedOriginal, setCroppedOriginal] = useState(null); // cropped, un-enhanced
+  const [croppedEnhanced, setCroppedEnhanced] = useState(null); // cropped + auto-enhanced
+  const [useEnhanced, setUseEnhanced] = useState(true);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const [cropperSrc, setCropperSrc] = useState(null);
   const inputRef = useRef();
+
+  const activePreview = useEnhanced ? (croppedEnhanced || croppedOriginal) : croppedOriginal;
 
   async function handleFile(file) {
     if (!file) return;
@@ -160,7 +175,9 @@ Svar KUN med JSON:
         }
       }
 
-      setPreview(finalPreview);
+      setCroppedOriginal(finalPreview);
+      setCroppedEnhanced(await enhancePhoto(finalPreview));
+      setUseEnhanced(true);
       setResult(parsed);
       setPhase("confirm");
     } catch (e) {
@@ -182,7 +199,7 @@ Svar KUN med JSON:
       fade: result.fade ?? 2,
       pPlastic: result.plastic || "",
       pColor: result.colorHex || "",
-      pPhoto: preview || "",
+      pPhoto: activePreview || "",
       pWeight: "",
       pNote: "",
       forSale: false,
@@ -195,7 +212,7 @@ Svar KUN med JSON:
     setPhase("editing");
   }
 
-  function handleDirectAdd() { onDirectAdd(result, preview); }
+  function handleDirectAdd() { onDirectAdd(result, activePreview); }
 
   function handleEditConfirm() {
     onDirectAdd({
@@ -249,7 +266,11 @@ Svar KUN med JSON:
         {cropperSrc && (
           <ImageCropper
             src={cropperSrc}
-            onSave={dataUrl => { setEditVals(v => ({ ...v, pPhoto: dataUrl })); setCropperSrc(null); }}
+            onSave={async dataUrl => {
+              setCropperSrc(null);
+              const enhanced = await enhancePhoto(dataUrl);
+              setEditVals(v => ({ ...v, pPhoto: enhanced }));
+            }}
             onCancel={() => setCropperSrc(null)}
           />
         )}
@@ -335,8 +356,8 @@ Svar KUN med JSON:
               background: C.raised, border: `1px solid ${C.line}`,
               borderRadius: 14, padding: "14px 16px", marginBottom: 10,
             }}>
-              {preview && (
-                <img src={preview} alt="Disc" style={{
+              {activePreview && (
+                <img src={activePreview} alt="Disc" style={{
                   width: 80, height: 80, objectFit: "cover", borderRadius: "50%",
                   border: `2px solid ${C.line}`, flexShrink: 0,
                 }}/>
@@ -369,6 +390,19 @@ Svar KUN med JSON:
                 )}
               </div>
             </div>
+
+            {croppedOriginal && (
+              <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 14 }}>
+                {[[false, "Original"], [true, "Forbedret ✓"]].map(([val, label]) => (
+                  <button key={String(val)} onClick={() => setUseEnhanced(val)} style={{
+                    padding: "6px 14px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: 500,
+                    border: `1px solid ${useEnhanced === val ? C.brand : C.line}`,
+                    background: useEnhanced === val ? `${C.brand}15` : "transparent",
+                    color: useEnhanced === val ? C.brand : C.muted,
+                  }}>{label}</button>
+                ))}
+              </div>
+            )}
 
             {conf && (
               <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -626,7 +660,10 @@ Svar KUN med JSON:
           <div style={{ textAlign: "center" }}>
             <p style={{ color: C.distance, fontSize: 14, marginBottom: 20 }}>{errorMsg}</p>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button onClick={() => { setPhase("idle"); setPreview(null); }} style={btn()}>Prøv igen</button>
+              <button onClick={() => {
+                setPhase("idle"); setPreview(null);
+                setCroppedOriginal(null); setCroppedEnhanced(null); setUseEnhanced(true);
+              }} style={btn()}>Prøv igen</button>
               <button onClick={() => onSearchFallback("", "")} style={{ ...btn("primary"), border: `1px solid ${C.brand}` }}>
                 Manuel søgning
               </button>
