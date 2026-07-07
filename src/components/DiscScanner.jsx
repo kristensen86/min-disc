@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import exifr from "exifr";
 import { X, Camera, Check, Search, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
 import { resizeImage, conditionText, suggestSalePrices } from "../utils";
@@ -14,69 +15,110 @@ const CONF = {
   low:    { label: "Lav sikkerhed", color: C.distance },
 };
 
-// Crop a circular disc photo from the image using canvas.
-// discPos: { centerX, centerY, radius } — all as % of image width/height/width
-function cropDisc(dataUrl, discPos) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        console.log("[DiscScanner] cropDisc", { imgWidth: img.width, imgHeight: img.height, discPos });
+// Draws `img` upright onto a fresh canvas per its EXIF orientation tag.
+// Only handles the rotations real camera output actually uses (mirrored
+// variants 2/4/5/7 essentially never occur outside scanners) — anything else
+// falls through as already-upright.
+function drawUpright(img, orientation, w, h) {
+  const swapped = orientation === 6 || orientation === 8;
+  const canvas = document.createElement("canvas");
+  canvas.width = swapped ? h : w;
+  canvas.height = swapped ? w : h;
+  const ctx = canvas.getContext("2d");
+  switch (orientation) {
+    case 3: ctx.transform(-1, 0, 0, -1, w, h); break;       // 180°
+    case 6: ctx.transform(0, 1, -1, 0, h, 0); break;        // 90° clockwise
+    case 8: ctx.transform(0, -1, 1, 0, 0, w); break;        // 90° counter-clockwise
+    default: break;                                          // 1, or unrecognized
+  }
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
 
-        let { centerX, centerY, radius } = discPos || {};
-        const valid = [centerX, centerY, radius].every(Number.isFinite)
-          && centerX > 0 && centerX < 100 && centerY > 0 && centerY < 100 && radius > 2 && radius < 60;
-        if (!valid) {
-          console.log("[DiscScanner] bbox out of bounds — falling back to center crop", discPos);
-          centerX = 50; centerY = 50; radius = 40;
-        }
+// Crops a circular disc photo straight from the original camera file (full
+// resolution, not the downsized copy sent to Claude Vision) so EXIF rotation
+// only ever gets applied once — re-rotating the already-upright preview here
+// would double-rotate on browsers/platforms that auto-rotate on decode.
+// discPos: { centerX, centerY, radius } — all as % of the upright image.
+async function cropDisc(file, discPos) {
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const padding = isAndroid ? 1.15 : 1.08; // Android camera output needs a bit more slack at the edges
 
-        // Clamp the disc's bounding box so it never extends past the image edges
-        if (centerX - radius < 0) radius = centerX;
-        if (centerY - radius < 0) radius = Math.min(radius, centerY);
-        if (centerX + radius > 100) radius = Math.min(radius, 100 - centerX);
-        if (centerY + radius > 100) radius = Math.min(radius, 100 - centerY);
+  let orientation = 1;
+  try { orientation = (await exifr.orientation(file)) || 1; } catch { orientation = 1; }
 
-        const cx = (centerX / 100) * img.width;
-        const cy = (centerY / 100) * img.height;
-        const r  = (radius  / 100) * img.width;
-        const side = r * 2 * 1.08; // tight padding so the disc fills the frame
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = objectUrl;
+    });
 
-        // Clamp the crop square to the image bounds — shrink to fit, then shift
-        // (not re-center) so we never sample outside the image.
-        const safeSize = Math.min(side, img.width, img.height);
-        const safeX = Math.min(Math.max(0, cx - safeSize / 2), img.width - safeSize);
-        const safeY = Math.min(Math.max(0, cy - safeSize / 2), img.height - safeSize);
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+    console.log("[DiscScanner] cropDisc — image", { naturalW, naturalH, orientation, isAndroid, padding });
 
-        const size = 400;
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
+    const upright = drawUpright(img, orientation, naturalW, naturalH);
 
-        ctx.fillStyle = "#182018";
-        ctx.fillRect(0, 0, size, size);
+    let { centerX, centerY, radius } = discPos || {};
+    const valid = [centerX, centerY, radius].every(Number.isFinite)
+      && centerX > 0 && centerX < 100 && centerY > 0 && centerY < 100 && radius > 2 && radius < 60;
+    if (!valid) {
+      console.log("[DiscScanner] bbox out of bounds — falling back to center crop", discPos);
+      centerX = 50; centerY = 50; radius = 40;
+    }
 
-        // Circular clip — fill color outside the circle
-        ctx.beginPath();
-        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-        ctx.clip();
+    // Clamp the disc's bounding box so it never extends past the image edges
+    if (centerX - radius < 0) radius = centerX;
+    if (centerY - radius < 0) radius = Math.min(radius, centerY);
+    if (centerX + radius > 100) radius = Math.min(radius, 100 - centerX);
+    if (centerY + radius > 100) radius = Math.min(radius, 100 - centerY);
 
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
+    const cx = (centerX / 100) * upright.width;
+    const cy = (centerY / 100) * upright.height;
+    const r  = (radius  / 100) * upright.width;
+    const side = r * 2 * padding;
 
-        ctx.drawImage(
-          img,
-          safeX, safeY, safeSize, safeSize,
-          0, 0, size, size,
-        );
+    // Clamp the crop square to the image bounds — shrink to fit, then shift
+    // (not re-center) so we never sample outside the image.
+    const safeSize = Math.min(side, upright.width, upright.height);
+    const safeX = Math.min(Math.max(0, cx - safeSize / 2), upright.width - safeSize);
+    const safeY = Math.min(Math.max(0, cy - safeSize / 2), upright.height - safeSize);
 
-        resolve(canvas.toDataURL("image/jpeg", 0.8));
-      } catch (e) { reject(e); }
-    };
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
+    console.log("[DiscScanner] cropDisc — bbox", {
+      centerXPx: cx, centerYPx: cy, radiusPx: r,
+      cropSize: safeSize, cropX: safeX, cropY: safeY,
+    });
+
+    const size = 400;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#182018";
+    ctx.fillRect(0, 0, size, size);
+
+    // Circular clip — fill color outside the circle
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    ctx.drawImage(
+      upright,
+      safeX, safeY, safeSize, safeSize,
+      0, 0, size, size,
+    );
+
+    return canvas.toDataURL("image/jpeg", 0.8);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }) {
@@ -165,11 +207,12 @@ Svar KUN med JSON:
         return;
       }
 
-      // Auto-crop if disc position was found
+      // Auto-crop if disc position was found — crop from the original file so
+      // EXIF rotation is only ever applied once (see cropDisc).
       let finalPreview = dataUrl;
       if (parsed.disc) {
         try {
-          finalPreview = await cropDisc(dataUrl, parsed.disc);
+          finalPreview = await cropDisc(file, parsed.disc);
         } catch {
           // Crop failed — fall back to original image
         }
