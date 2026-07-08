@@ -36,12 +36,79 @@ function drawUpright(img, orientation, w, h) {
   return canvas;
 }
 
-// Crops a circular disc photo straight from the original camera file (full
-// resolution, not the downsized copy sent to Claude Vision) so EXIF rotation
-// only ever gets applied once — re-rotating the already-upright preview here
-// would double-rotate on browsers/platforms that auto-rotate on decode.
-// discPos: { centerX, centerY, radius } — all as % of the upright image.
-async function cropDisc(file, discPos) {
+// Resizes a canvas down so its long side is at most `maxSize` — keeps the
+// original image small in memory/state without losing crop-adjustment detail.
+function resizeCanvasTo(canvas, maxSize) {
+  const longSide = Math.max(canvas.width, canvas.height);
+  if (longSide <= maxSize) return canvas;
+  const scale = maxSize / longSide;
+  const out = document.createElement("canvas");
+  out.width = Math.round(canvas.width * scale);
+  out.height = Math.round(canvas.height * scale);
+  const ctx = out.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+  return out;
+}
+
+// Validates/clamps Claude Vision's disc bbox, falling back to a centered
+// guess if it's missing or nonsensical, then pads it a bit — Android camera
+// output in particular needs slack at the edges — and clamps the padded
+// circle so it never extends past the image edges.
+function normalizeCropPos(discPos, padding) {
+  let { centerX, centerY, radius } = discPos || {};
+  const valid = [centerX, centerY, radius].every(Number.isFinite)
+    && centerX > 0 && centerX < 100 && centerY > 0 && centerY < 100 && radius > 2 && radius < 60;
+  if (!valid) {
+    centerX = 50; centerY = 50; radius = 40;
+  } else {
+    radius = radius * padding;
+  }
+  if (centerX - radius < 0) radius = centerX;
+  if (centerY - radius < 0) radius = Math.min(radius, centerY);
+  if (centerX + radius > 100) radius = Math.min(radius, 100 - centerX);
+  if (centerY + radius > 100) radius = Math.min(radius, 100 - centerY);
+  return { centerX, centerY, radius };
+}
+
+// Crops a circular disc photo out of `canvas` per cropPos ({ centerX, centerY,
+// radius }, all as % of the canvas). Shrinks-to-fit + shifts (not re-centers)
+// so it never samples outside the image bounds.
+function cropCircleFromCanvas(canvas, cropPos, size = 400) {
+  const { centerX, centerY, radius } = cropPos;
+  const cx = (centerX / 100) * canvas.width;
+  const cy = (centerY / 100) * canvas.height;
+  const r  = (radius  / 100) * canvas.width;
+
+  const safeSize = Math.min(r * 2, canvas.width, canvas.height);
+  const safeX = Math.min(Math.max(0, cx - safeSize / 2), canvas.width - safeSize);
+  const safeY = Math.min(Math.max(0, cy - safeSize / 2), canvas.height - safeSize);
+
+  const out = document.createElement("canvas");
+  out.width = size;
+  out.height = size;
+  const ctx = out.getContext("2d");
+
+  ctx.fillStyle = "#182018";
+  ctx.fillRect(0, 0, size, size);
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(canvas, safeX, safeY, safeSize, safeSize, 0, 0, size, size);
+
+  return out.toDataURL("image/jpeg", 0.8);
+}
+
+// Processes the original camera file (full resolution, not the downsized copy
+// sent to Claude Vision) so EXIF rotation only ever gets applied once —
+// re-rotating an already-upright preview would double-rotate on
+// browsers/platforms that auto-rotate on decode.
+// Returns the upright image resized to maxSize (for crop re-adjustment later),
+// the initial circular crop, and the crop position used to produce it.
+async function processImage(file, discPos) {
   const isAndroid = /android/i.test(navigator.userAgent);
   const padding = isAndroid ? 1.15 : 1.08; // Android camera output needs a bit more slack at the edges
 
@@ -57,66 +124,15 @@ async function cropDisc(file, discPos) {
       im.src = objectUrl;
     });
 
-    const naturalW = img.naturalWidth;
-    const naturalH = img.naturalHeight;
-    console.log("[DiscScanner] cropDisc — image", { naturalW, naturalH, orientation, isAndroid, padding });
+    const upright = drawUpright(img, orientation, img.naturalWidth, img.naturalHeight);
+    const resized = resizeCanvasTo(upright, 1200);
+    const cropPos = normalizeCropPos(discPos, padding);
 
-    const upright = drawUpright(img, orientation, naturalW, naturalH);
-
-    let { centerX, centerY, radius } = discPos || {};
-    const valid = [centerX, centerY, radius].every(Number.isFinite)
-      && centerX > 0 && centerX < 100 && centerY > 0 && centerY < 100 && radius > 2 && radius < 60;
-    if (!valid) {
-      console.log("[DiscScanner] bbox out of bounds — falling back to center crop", discPos);
-      centerX = 50; centerY = 50; radius = 40;
-    }
-
-    // Clamp the disc's bounding box so it never extends past the image edges
-    if (centerX - radius < 0) radius = centerX;
-    if (centerY - radius < 0) radius = Math.min(radius, centerY);
-    if (centerX + radius > 100) radius = Math.min(radius, 100 - centerX);
-    if (centerY + radius > 100) radius = Math.min(radius, 100 - centerY);
-
-    const cx = (centerX / 100) * upright.width;
-    const cy = (centerY / 100) * upright.height;
-    const r  = (radius  / 100) * upright.width;
-    const side = r * 2 * padding;
-
-    // Clamp the crop square to the image bounds — shrink to fit, then shift
-    // (not re-center) so we never sample outside the image.
-    const safeSize = Math.min(side, upright.width, upright.height);
-    const safeX = Math.min(Math.max(0, cx - safeSize / 2), upright.width - safeSize);
-    const safeY = Math.min(Math.max(0, cy - safeSize / 2), upright.height - safeSize);
-
-    console.log("[DiscScanner] cropDisc — bbox", {
-      centerXPx: cx, centerYPx: cy, radiusPx: r,
-      cropSize: safeSize, cropX: safeX, cropY: safeY,
-    });
-
-    const size = 400;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-
-    ctx.fillStyle = "#182018";
-    ctx.fillRect(0, 0, size, size);
-
-    // Circular clip — fill color outside the circle
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.clip();
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-
-    ctx.drawImage(
-      upright,
-      safeX, safeY, safeSize, safeSize,
-      0, 0, size, size,
-    );
-
-    return canvas.toDataURL("image/jpeg", 0.8);
+    return {
+      originalImageData: resized.toDataURL("image/jpeg", 0.85),
+      croppedImageData: cropCircleFromCanvas(resized, cropPos),
+      cropPos,
+    };
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -129,6 +145,8 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [croppedEnhanced, setCroppedEnhanced] = useState(null); // cropped + auto-enhanced
   const [useEnhanced, setUseEnhanced] = useState(true);
   const [manualPreview, setManualPreview] = useState(null); // overrides both, once the user fine-tunes via ImageAdjuster
+  const [originalImageData, setOriginalImageData] = useState(null); // full upright photo, for crop re-adjustment
+  const [initialCropData, setInitialCropData] = useState(null); // { centerX, centerY, radius } used for the initial crop
   const [showAdjuster, setShowAdjuster] = useState(false);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -210,17 +228,23 @@ Svar KUN med JSON:
         return;
       }
 
-      // Auto-crop if disc position was found — crop from the original file so
-      // EXIF rotation is only ever applied once (see cropDisc).
+      // Auto-crop from the original file so EXIF rotation is only ever
+      // applied once (see processImage) — also keeps the upright original
+      // around so the user can re-adjust the crop later via ImageAdjuster.
       let finalPreview = dataUrl;
-      if (parsed.disc) {
-        try {
-          finalPreview = await cropDisc(file, parsed.disc);
-        } catch {
-          // Crop failed — fall back to original image
-        }
+      let originalData = null;
+      let cropData = null;
+      try {
+        const processed = await processImage(file, parsed.disc);
+        finalPreview = processed.croppedImageData;
+        originalData = processed.originalImageData;
+        cropData = processed.cropPos;
+      } catch {
+        // Processing failed — fall back to the plain preview, no crop-adjust available
       }
 
+      setOriginalImageData(originalData);
+      setInitialCropData(cropData);
       setCroppedOriginal(finalPreview);
       setCroppedEnhanced(await enhancePhoto(finalPreview));
       setUseEnhanced(true);
@@ -327,6 +351,8 @@ Svar KUN med JSON:
           <ImageAdjuster
             src={activePreview}
             resetSrc={croppedOriginal}
+            originalImage={originalImageData}
+            initialCrop={initialCropData}
             onSave={dataUrl => { setManualPreview(dataUrl); setShowAdjuster(false); }}
             onCancel={() => setShowAdjuster(false)}
           />
@@ -732,6 +758,7 @@ Svar KUN med JSON:
                 setPhase("idle"); setPreview(null);
                 setCroppedOriginal(null); setCroppedEnhanced(null); setUseEnhanced(true);
                 setManualPreview(null);
+                setOriginalImageData(null); setInitialCropData(null);
               }} style={btn()}>Prøv igen</button>
               <button onClick={() => onSearchFallback("", "")} style={{ ...btn("primary"), border: `1px solid ${C.brand}` }}>
                 Manuel søgning
