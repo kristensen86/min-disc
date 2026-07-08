@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from "react";
 import exifr from "exifr";
 import { X, Camera, Check, Search, ChevronLeft } from "lucide-react";
-import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
+import { C, TYPES, DISC_COLORS, TYPE_COLOR, typeFromSpeed } from "../constants";
 import { resizeImage, conditionText, suggestSalePrices } from "../utils";
 import { enhancePhoto } from "../photoEnhance";
 import { btn, miniBtn } from "./ui";
@@ -15,6 +15,34 @@ const CONF = {
   medium: { label: "Middel sikkerhed", color: "#fdba74" },
   low:    { label: "Lav sikkerhed", color: C.distance },
 };
+
+// Dropdown of matching discs, anchored under a Navn/Mærke autocomplete input.
+// The input's onMouseDown-preventDefault-free onBlur would close this before
+// onClick fires, so the option buttons use onMouseDown to pick before blur.
+function DiscAutocomplete({ matches, onPick }) {
+  return (
+    <div style={{
+      position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, zIndex: 10,
+      background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10,
+      overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+    }}>
+      {matches.map((d, i) => (
+        <button key={d.id} onMouseDown={e => { e.preventDefault(); onPick(d); }} style={{
+          width: "100%", textAlign: "left", padding: "8px 10px", cursor: "pointer",
+          background: "transparent", border: "none", color: C.text, fontSize: 12,
+          borderTop: i === 0 ? "none" : `1px solid ${C.line}`,
+          display: "flex", alignItems: "center", gap: 7,
+        }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: TYPE_COLOR[d.type] || C.muted, flexShrink: 0 }}/>
+          <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{d.name}</span>
+          <span style={{ color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            · {d.brand} · {d.speed}/{d.glide}/{d.turn}/{d.fade}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // Draws `img` upright onto a fresh canvas per its EXIF orientation tag.
 // Only handles the rotations real camera output actually uses (mirrored
@@ -152,28 +180,30 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const [cropperSrc, setCropperSrc] = useState(null);
-  const [dbMatch, setDbMatch] = useState(null); // brand+name once a disc is picked from the "Skift disc" search
-  const [showDiscSearch, setShowDiscSearch] = useState(false);
-  const [discSearchQuery, setDiscSearchQuery] = useState("");
+  const [autocompleteField, setAutocompleteField] = useState(null); // "name" | "brand" | null — which field's dropdown is open
   const inputRef = useRef();
 
   const activePreview = manualPreview || (useEnhanced ? (croppedEnhanced || croppedOriginal) : croppedOriginal);
 
-  const discSearchResults = useMemo(() => {
-    const q = discSearchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return allDiscs.filter(d => (d.name + " " + d.brand).toLowerCase().includes(q)).slice(0, 6);
-  }, [allDiscs, discSearchQuery]);
+  const nameMatches = useMemo(() => {
+    const q = (editVals?.name || "").trim().toLowerCase();
+    if (q.length < 2) return [];
+    return allDiscs.filter(d => d.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [allDiscs, editVals?.name]);
 
-  function pickDiscFromSearch(d) {
+  const brandMatches = useMemo(() => {
+    const q = (editVals?.brand || "").trim().toLowerCase();
+    if (q.length < 2) return [];
+    return allDiscs.filter(d => d.brand.toLowerCase().includes(q)).slice(0, 6);
+  }, [allDiscs, editVals?.brand]);
+
+  function pickDisc(d) {
     setEditVals(v => ({
       ...v,
       name: d.name, brand: d.brand, type: d.type,
       speed: d.speed, glide: d.glide, turn: d.turn, fade: d.fade,
     }));
-    setDbMatch(`${d.brand} ${d.name}`);
-    setShowDiscSearch(false);
-    setDiscSearchQuery("");
+    setAutocompleteField(null);
   }
 
   async function handleFile(file) {
@@ -280,9 +310,7 @@ Svar KUN med JSON:
 
   function startEditing() {
     const type = result.speed ? typeFromSpeed(Number(result.speed)) : "Distance";
-    setDbMatch(null);
-    setShowDiscSearch(false);
-    setDiscSearchQuery("");
+    setAutocompleteField(null);
     setEditVals({
       name: result.name || "",
       brand: result.brand || "",
@@ -554,69 +582,34 @@ Svar KUN med JSON:
         {/* editing — full edit form matching Mine Discs */}
         {phase === "editing" && editVals && (
           <div>
-            {/* Navn + Mærke */}
+            {/* Navn + Mærke — autocomplete mod disc-databasen, så en forkert scan-mold kan rettes ved at vælge den rigtige disc */}
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
+              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl, position: "relative" }}>
                 Navn *
-                <input value={editVals.name} onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))} style={inp}/>
+                <input
+                  value={editVals.name} autoComplete="off"
+                  onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))}
+                  onFocus={() => setAutocompleteField("name")}
+                  onBlur={() => setAutocompleteField(f => f === "name" ? null : f)}
+                  style={inp}
+                />
+                {autocompleteField === "name" && nameMatches.length > 0 && (
+                  <DiscAutocomplete matches={nameMatches} onPick={pickDisc}/>
+                )}
               </label>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
+              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl, position: "relative" }}>
                 Mærke *
-                <input value={editVals.brand} onChange={e => setEditVals(v => ({ ...v, brand: e.target.value }))} style={inp}/>
+                <input
+                  value={editVals.brand} autoComplete="off"
+                  onChange={e => setEditVals(v => ({ ...v, brand: e.target.value }))}
+                  onFocus={() => setAutocompleteField("brand")}
+                  onBlur={() => setAutocompleteField(f => f === "brand" ? null : f)}
+                  style={inp}
+                />
+                {autocompleteField === "brand" && brandMatches.length > 0 && (
+                  <DiscAutocomplete matches={brandMatches} onPick={pickDisc}/>
+                )}
               </label>
-            </div>
-
-            {/* Skift disc — søg efter en anden disc i databasen hvis scanneren fandt forkert mold */}
-            <div style={{ marginBottom: 16 }}>
-              <button onClick={() => setShowDiscSearch(s => !s)} style={{
-                ...miniBtn(C.muted), display: "inline-flex", alignItems: "center", gap: 6,
-              }}>
-                <Search size={13}/> Søg efter anden disc
-              </button>
-
-              {showDiscSearch && (
-                <div style={{ marginTop: 10 }}>
-                  <input
-                    value={discSearchQuery} onChange={e => setDiscSearchQuery(e.target.value)}
-                    placeholder="Søg disc eller mærke…" autoFocus style={inp}
-                  />
-                  {discSearchQuery.trim() && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-                      {discSearchResults.map(d => (
-                        <button key={d.id} onClick={() => pickDiscFromSearch(d)} style={{
-                          textAlign: "left", padding: "8px 10px", borderRadius: 9, cursor: "pointer",
-                          background: C.surface, border: `1px solid ${C.line}`, color: C.text, fontSize: 12.5,
-                        }}>
-                          <span style={{ fontWeight: 600 }}>{d.name}</span>
-                          <span style={{ color: C.muted }}> · {d.brand} · {d.type} · {d.speed}/{d.glide}/{d.turn}/{d.fade}</span>
-                        </button>
-                      ))}
-                      {discSearchResults.length === 0 && (
-                        <div style={{ fontSize: 12, color: C.muted, padding: "4px 2px" }}>Ingen discs matcher.</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {dbMatch ? (
-                <div style={{
-                  display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10,
-                  fontSize: 11, fontWeight: 600, color: C.brand,
-                  background: `${C.brand}15`, border: `1px solid ${C.brand}40`,
-                  borderRadius: 999, padding: "4px 10px",
-                }}>
-                  <Check size={11}/> Hentet fra database: {dbMatch}
-                </div>
-              ) : (
-                <button onClick={() => setShowDiscSearch(true)} style={{
-                  display: "inline-flex", alignItems: "center", marginTop: 10,
-                  fontSize: 11, color: C.muted, background: "transparent",
-                  border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px", cursor: "pointer",
-                }}>
-                  Fra scanner — tryk for at søge i database
-                </button>
-              )}
             </div>
 
             {/* Type */}
