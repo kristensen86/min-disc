@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import exifr from "exifr";
 import { X, Camera, Check, Search, ChevronLeft } from "lucide-react";
 import { C, TYPES, DISC_COLORS, typeFromSpeed } from "../constants";
@@ -152,9 +152,29 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const [errorMsg, setErrorMsg] = useState("");
   const [editVals, setEditVals] = useState(null);
   const [cropperSrc, setCropperSrc] = useState(null);
+  const [dbMatch, setDbMatch] = useState(null); // brand+name once a disc is picked from the "Skift disc" search
+  const [showDiscSearch, setShowDiscSearch] = useState(false);
+  const [discSearchQuery, setDiscSearchQuery] = useState("");
   const inputRef = useRef();
 
   const activePreview = manualPreview || (useEnhanced ? (croppedEnhanced || croppedOriginal) : croppedOriginal);
+
+  const discSearchResults = useMemo(() => {
+    const q = discSearchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return allDiscs.filter(d => (d.name + " " + d.brand).toLowerCase().includes(q)).slice(0, 6);
+  }, [allDiscs, discSearchQuery]);
+
+  function pickDiscFromSearch(d) {
+    setEditVals(v => ({
+      ...v,
+      name: d.name, brand: d.brand, type: d.type,
+      speed: d.speed, glide: d.glide, turn: d.turn, fade: d.fade,
+    }));
+    setDbMatch(`${d.brand} ${d.name}`);
+    setShowDiscSearch(false);
+    setDiscSearchQuery("");
+  }
 
   async function handleFile(file) {
     if (!file) return;
@@ -260,6 +280,9 @@ Svar KUN med JSON:
 
   function startEditing() {
     const type = result.speed ? typeFromSpeed(Number(result.speed)) : "Distance";
+    setDbMatch(null);
+    setShowDiscSearch(false);
+    setDiscSearchQuery("");
     setEditVals({
       name: result.name || "",
       brand: result.brand || "",
@@ -541,6 +564,59 @@ Svar KUN med JSON:
                 Mærke *
                 <input value={editVals.brand} onChange={e => setEditVals(v => ({ ...v, brand: e.target.value }))} style={inp}/>
               </label>
+            </div>
+
+            {/* Skift disc — søg efter en anden disc i databasen hvis scanneren fandt forkert mold */}
+            <div style={{ marginBottom: 16 }}>
+              <button onClick={() => setShowDiscSearch(s => !s)} style={{
+                ...miniBtn(C.muted), display: "inline-flex", alignItems: "center", gap: 6,
+              }}>
+                <Search size={13}/> Søg efter anden disc
+              </button>
+
+              {showDiscSearch && (
+                <div style={{ marginTop: 10 }}>
+                  <input
+                    value={discSearchQuery} onChange={e => setDiscSearchQuery(e.target.value)}
+                    placeholder="Søg disc eller mærke…" autoFocus style={inp}
+                  />
+                  {discSearchQuery.trim() && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                      {discSearchResults.map(d => (
+                        <button key={d.id} onClick={() => pickDiscFromSearch(d)} style={{
+                          textAlign: "left", padding: "8px 10px", borderRadius: 9, cursor: "pointer",
+                          background: C.surface, border: `1px solid ${C.line}`, color: C.text, fontSize: 12.5,
+                        }}>
+                          <span style={{ fontWeight: 600 }}>{d.name}</span>
+                          <span style={{ color: C.muted }}> · {d.brand} · {d.type} · {d.speed}/{d.glide}/{d.turn}/{d.fade}</span>
+                        </button>
+                      ))}
+                      {discSearchResults.length === 0 && (
+                        <div style={{ fontSize: 12, color: C.muted, padding: "4px 2px" }}>Ingen discs matcher.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {dbMatch ? (
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10,
+                  fontSize: 11, fontWeight: 600, color: C.brand,
+                  background: `${C.brand}15`, border: `1px solid ${C.brand}40`,
+                  borderRadius: 999, padding: "4px 10px",
+                }}>
+                  <Check size={11}/> Hentet fra database: {dbMatch}
+                </div>
+              ) : (
+                <button onClick={() => setShowDiscSearch(true)} style={{
+                  display: "inline-flex", alignItems: "center", marginTop: 10,
+                  fontSize: 11, color: C.muted, background: "transparent",
+                  border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px", cursor: "pointer",
+                }}>
+                  Fra scanner — tryk for at søge i database
+                </button>
+              )}
             </div>
 
             {/* Type */}
