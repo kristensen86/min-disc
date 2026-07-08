@@ -188,13 +188,22 @@ export function DiscScanner({ allDiscs, onDirectAdd, onSearchFallback, onClose }
   const nameMatches = useMemo(() => {
     const q = (editVals?.name || "").trim().toLowerCase();
     if (q.length < 2) return [];
-    return allDiscs.filter(d => d.name.toLowerCase().includes(q)).slice(0, 6);
+    // Bidirectional match: catches both "user typed less than the full name"
+    // (normal autocomplete) and "scanner over-guessed" — e.g. field already
+    // holds "FD3" from a bad scan, and the real disc is "FD".
+    return allDiscs.filter(d => {
+      const name = d.name.toLowerCase();
+      return name.includes(q) || q.includes(name);
+    }).slice(0, 6);
   }, [allDiscs, editVals?.name]);
 
   const brandMatches = useMemo(() => {
     const q = (editVals?.brand || "").trim().toLowerCase();
     if (q.length < 2) return [];
-    return allDiscs.filter(d => d.brand.toLowerCase().includes(q)).slice(0, 6);
+    return allDiscs.filter(d => {
+      const brand = d.brand.toLowerCase();
+      return brand.includes(q) || q.includes(brand);
+    }).slice(0, 6);
   }, [allDiscs, editVals?.brand]);
 
   function pickDisc(d) {
@@ -584,31 +593,43 @@ Svar KUN med JSON:
           <div>
             {/* Navn + Mærke — autocomplete mod disc-databasen, så en forkert scan-mold kan rettes ved at vælge den rigtige disc */}
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl, position: "relative" }}>
+              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
                 Navn *
-                <input
-                  value={editVals.name} autoComplete="off"
-                  onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))}
-                  onFocus={() => setAutocompleteField("name")}
-                  onBlur={() => setAutocompleteField(f => f === "name" ? null : f)}
-                  style={inp}
-                />
-                {autocompleteField === "name" && nameMatches.length > 0 && (
-                  <DiscAutocomplete matches={nameMatches} onPick={pickDisc}/>
-                )}
+                <div style={{ position: "relative" }}>
+                  <input
+                    value={editVals.name} autoComplete="off"
+                    onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))}
+                    onFocus={() => setAutocompleteField("name")}
+                    onBlur={() => setAutocompleteField(f => f === "name" ? null : f)}
+                    style={{ ...inp, paddingRight: 28 }}
+                  />
+                  <Search size={13} style={{
+                    position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)",
+                    color: C.muted, pointerEvents: "none",
+                  }}/>
+                  {autocompleteField === "name" && nameMatches.length > 0 && (
+                    <DiscAutocomplete matches={nameMatches} onPick={pickDisc}/>
+                  )}
+                </div>
               </label>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl, position: "relative" }}>
+              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, ...lbl }}>
                 Mærke *
-                <input
-                  value={editVals.brand} autoComplete="off"
-                  onChange={e => setEditVals(v => ({ ...v, brand: e.target.value }))}
-                  onFocus={() => setAutocompleteField("brand")}
-                  onBlur={() => setAutocompleteField(f => f === "brand" ? null : f)}
-                  style={inp}
-                />
-                {autocompleteField === "brand" && brandMatches.length > 0 && (
-                  <DiscAutocomplete matches={brandMatches} onPick={pickDisc}/>
-                )}
+                <div style={{ position: "relative" }}>
+                  <input
+                    value={editVals.brand} autoComplete="off"
+                    onChange={e => setEditVals(v => ({ ...v, brand: e.target.value }))}
+                    onFocus={() => setAutocompleteField("brand")}
+                    onBlur={() => setAutocompleteField(f => f === "brand" ? null : f)}
+                    style={{ ...inp, paddingRight: 28 }}
+                  />
+                  <Search size={13} style={{
+                    position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)",
+                    color: C.muted, pointerEvents: "none",
+                  }}/>
+                  {autocompleteField === "brand" && brandMatches.length > 0 && (
+                    <DiscAutocomplete matches={brandMatches} onPick={pickDisc}/>
+                  )}
+                </div>
               </label>
             </div>
 
