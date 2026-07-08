@@ -64,6 +64,11 @@ export function decodeBag(enc){
 
 export function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
+// Deterministic uid for legacy owned-array migration (discId[] -> {uid,discId}[]).
+// Must produce the same uid every time for the same (discId, index) pair so the
+// migration is idempotent — safe to re-run concurrently across tabs/devices.
+export function legacyUid(discId, index){ return `legacy-${discId}-${index}`; }
+
 export function emptyGenForm(){
   return{name:"Tilfældig bag",preset:"none",balanced:true,total:8,
     counts:{Putter:2,Midrange:2,Fairway:2,Distance:2},minSpeed:1,maxSpeed:14,allowDup:false,

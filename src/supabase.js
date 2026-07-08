@@ -12,3 +12,10 @@ export const supabase =
 let _user = null;
 export const getUser = () => _user;
 export const setUser = (user) => { _user = user; };
+
+// Module-level access token, kept fresh on every auth event including
+// TOKEN_REFRESHED — unlike the React authUser state, this must always be the
+// latest value since it's used for raw fetch() calls outside supabase-js.
+let _accessToken = null;
+export const getAccessToken = () => _accessToken;
+export const setAccessToken = (token) => { _accessToken = token; };

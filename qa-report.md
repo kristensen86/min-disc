@@ -5,8 +5,8 @@ _Agents kørt: qa-brugt-jesse (Jesse), qa-data (Dara), qa-design (Uma), qa-form-
 
 ## Top 5 vigtigste fund
 
-1. **Persistering læner sig kun på et upålideligt `beforeunload`-flush — ugemte ændringer kan tabes stille ved lukning/baggrund på mobil.** `src/hooks/useDebouncedPersist.js` bruger en 800ms debounce uden `sendBeacon`/`keepalive`, og har ingen `visibilitychange`-fallback. Ramte manifestationer: tabt override efter mold-skift/vægt-redigering, "solgt"-status der springer tilbage til "til salg" ved genåbning. _(fundet af: Peter, Jesse, Simon, Dara — 4 agenter uafhængigt)_
-2. **Auth-token-refresh kan tavst overskrive ugemte redigeringer.** `onAuthStateChange` (`src/App.jsx:91-99`) trigger en fuld state-genindlæsning fra serveren ved ethvert auth-event, inkl. periodisk baggrunds-token-refresh — uden merge mod aktuel in-memory state. En redigering foretaget i det smalle vindue inden debounce-flush kan forsvinde sporløst. _(fundet af: Simon, Dara — 2 agenter uafhængigt)_
+1. **✅ RETTET (Bølge 1)** — ~~Persistering læner sig kun på et upålideligt `beforeunload`-flush — ugemte ændringer kan tabes stille ved lukning/baggrund på mobil.~~ `useDebouncedPersist` flusher nu på `visibilitychange`/`pagehide`/`beforeunload` via en keepalive-`fetch`. _(fundet af: Peter, Jesse, Simon, Dara — 4 agenter uafhængigt)_
+2. **✅ RETTET (Bølge 1)** — ~~Auth-token-refresh kan tavst overskrive ugemte redigeringer.~~ Auth-listener genbruger nu `authUser`-referencen når bruger-id er uændret, så `TOKEN_REFRESHED` ikke længere trigger en state-genindlæsning. _(fundet af: Simon, Dara — 2 agenter uafhængigt)_
 3. **`/api/scan` er en fuldstændig uautentificeret, gratis proxy til Anthropic API.** Intet auth-tjek, ingen rate-limiting, ingen CORS-restriktion — enhver der kender URL'en kan sende vilkårlige `messages` og generere ubegrænsede API-omkostninger på Kims konto. `api/scan.js:1-27`. _(fundet af: Sofus)_
 4. **Flight-tal-overrides (S/G/T/F) gemmes helt uvalideret — fysisk umulige tal fremstår som fakta.** `min`/`max`/`step` er kun kosmetiske HTML-attributter; `onChange` clamper aldrig (`src/components/ui.jsx:115-116`, `DiscScanner.jsx:658-659`). En disc kan gemmes med fx Turn=8/Fade=-3 og vises uændret i Flight Matrix og flight-badges. _(fundet af: Dan, Rob — 2 agenter uafhængigt)_
 5. **Salgslistens træk-og-sortér virker slet ikke på touch.** `SalePanel.jsx` bruger HTML5 Drag-and-Drop (`draggable`/`onDragStart` m.fl.), som ikke understøttes af touch på iOS/Android — en kernefunktion er reelt ubrugelig på appens primære platform (mobil/PWA). _(fundet af: Mia)_
@@ -15,9 +15,9 @@ _Agents kørt: qa-brugt-jesse (Jesse), qa-data (Dara), qa-design (Uma), qa-form-
 
 ## KRITISK
 
-- **[`src/hooks/useDebouncedPersist.js`]** Debounced persist flusher kun via `beforeunload` uden `sendBeacon`/`keepalive` og uden `visibilitychange`-fallback — ugemte skrivninger kan tabes ved app-lukning/baggrund på mobil/PWA, hvor `beforeunload` ofte slet ikke fyrer. Ramte flows: override-gemning efter redigering, "markér som solgt" (`App.jsx:436-449`). Reproduktion: rediger vægt på en disc, luk/swipe appen væk inden for 800ms → ændringen forsvinder uden fejl. _(fundet af: qa-power-user, qa-brugt-jesse, qa-power-simon, qa-data)_
+- **✅ RETTET (Bølge 1) — [`src/hooks/useDebouncedPersist.js`]** Flush sker nu på `visibilitychange` (primær), `pagehide` og `beforeunload`, via `store.setUrgent` (raw `fetch` med `keepalive:true` + `Authorization`-header, fallback til normal `set` for store payloads/manglende token). _(fundet af: qa-power-user, qa-brugt-jesse, qa-power-simon, qa-data)_
 
-- **[`src/App.jsx:91-99, 110-244`]** `onAuthStateChange` sætter et nyt `authUser`-objekt ved ethvert auth-event (inkl. periodisk `TOKEN_REFRESHED`), hvilket trigger load-effekten til at genindlæse al state fra Supabase og overskrive den uden merge mod in-memory state. Reproduktion: lang session, rediger en disc lige inden JWT-refresh fyrer → redigeringen overskrives af serverens (ældre) snapshot. _(fundet af: qa-power-simon, qa-data)_
+- **✅ RETTET (Bølge 1) — [`src/App.jsx:102-120`]** Auth-listeneren genbruger nu `prev`-referencen når `session.user.id` er uændret, så `TOKEN_REFRESHED`/`USER_UPDATED` ikke længere producerer en ny `authUser`-reference eller trigger load-effekten. _(fundet af: qa-power-simon, qa-data)_
 
 - **[`api/scan.js:1-27`]** Intet auth-/session-tjek, ingen rate-limiting, ingen CORS-restriktion på `/api/scan`. Kun `model`-prefix og `max_tokens≤2048` valideres. Reproduktion: `curl -X POST https://<domain>/api/scan -d '{"model":"claude-...","messages":[...]}'` kan gentages ubegrænset og generere reelle Anthropic-omkostninger på Kims konto — helt uafhængigt af appens UI-flow. _(fundet af: qa-sikkerhed)_
 
@@ -29,9 +29,9 @@ _Agents kørt: qa-brugt-jesse (Jesse), qa-data (Dara), qa-design (Uma), qa-form-
 
 - **[`src/components/DiscScanner.jsx:218-318`, `App.jsx:906-907`]** `AbortController` for scan-kald (og `photoEnhance.js`'s egen) er en lokal variabel uden `useEffect`-cleanup ved unmount — lukkes scanneren midt i et kald, kører requesten videre i baggrunden. Reproduktion: åbn scanner → tag billede → luk med det samme → gentag 30x hurtigt → op til 30 ikke-annullerede kald mod `/api/scan` kører videre samtidigt. _(fundet af: qa-power-simon)_
 
-- **[`src/store.js:9-15`, `src/App.jsx:117-244`]** `store.get()` fanger enhver exception (netværksfejl, timeout, RLS-fejl) og returnerer `null`, umuligt at skelne fra "ingen data" — udløser stille fallback til (evt. forældet) localStorage ved **hvert** app-load, ikke kun ved første migrering. Kan efterfølgende overskrive cloud-data via debounced persist. _(fundet af: qa-data)_
+- **✅ RETTET (Bølge 1) — [`src/store.js`]** `get`/`set` returnerer nu `{ok:true, value}` vs. `{ok:false, error}`; en fejl kan ikke længere udløse localStorage-fallback eller default-oprettelse (kun bekræftet tom, via nyt `loadKey`-gate i `App.jsx`, gør det). _(fundet af: qa-data)_
 
-- **[`src/App.jsx:119-138`]** Legacy-migrering af `owned` (streng-array → `{uid,discId}`) genererer nye tilfældige uid'er ved hvert kørsel og er ikke idempotent — samtidige logins/delvis fejl kan gøre `overrides` forældreløse mod et uid-batch der aldrig committes. _(fundet af: qa-data)_
+- **✅ RETTET (Bølge 1) — [`src/utils.js`, `src/App.jsx`]** Legacy-migrering bruger nu deterministisk `legacyUid(discId, index)` i stedet for `genId()`, så gentagne/samtidige kørsler producerer identiske uid'er og aldrig gør `overrides` forældreløse. _(fundet af: qa-data)_
 
 - **[`src/App.jsx:698-726`]** "Mine discs"-listen renderer alle 200+ `DiscCard`-instanser uden virtualisering/paginering, og ingen komponent i kodebasen bruger `React.memo` — enhver state-ændring re-renderer alle synlige kort. _(fundet af: qa-power-user)_
 
@@ -121,7 +121,7 @@ _Agents kørt: qa-brugt-jesse (Jesse), qa-data (Dara), qa-design (Uma), qa-form-
 - **[`App.jsx:999-1015`]** `UpdateBanner` og photo-fejl-banneret kan overlappe fuldstændigt (samme position/z-index). _(fundet af: qa-mobil-pwa)_
 - **[`BagDetail.jsx:43-49`]** Fjern-fra-bag-animation bruger ét delt `removingUid`-state uden oprydning — hurtige klik på forskellige discs desynkroniserer den visuelle "fjernes"-indikator. _(fundet af: qa-power-simon)_
 - **[`src/App.jsx:955-959`]** Gæstebrugeres base64-fotos i localStorage kan stille ramme quota ved bulk-scanning — alle persist-fejl sluges tavst uden brugerfeedback. _(fundet af: qa-power-simon)_
-- **[`supabase/schema.sql`, `store.js:23-28`]** Ingen `updated_at`/versionskolonne og ingen realtime-subscription — to faner/enheder på samme konto kan overskrive hinandens ændringer (last-write-wins) uden konflikthåndtering. _(fundet af: qa-data)_
+- **🟡 DELVIST RETTET (Bølge 1) — [`supabase/schema.sql`]** Additiv `updated_at`-kolonne + trigger landet til fejlsøgning; egentlig last-write-wins-afvisning (CAS) er bevidst udskudt til en senere bølge (kræver RPC/ekstra netværkskald, lavfrekvent scenarie for denne app), se `PLAN-bolge1.md` afsnit 8. _(fundet af: qa-data)_
 - **[`src/App.jsx:894`]** Ønskeliste renses ikke automatisk når en disc købes/tilføjes til samlingen — intet atomisk "marker som købt"-flow. _(fundet af: qa-data)_
 - **[`src/App.jsx:436-449`]** Solgte discs fjernes ikke fra `owned`/`bags` — forbliver synlige i Mine/Flight Matrix/statistik indtil manuel sletning. _(fundet af: qa-data)_
 
@@ -148,4 +148,4 @@ _Agents kørt: qa-brugt-jesse (Jesse), qa-data (Dara), qa-design (Uma), qa-form-
 - **[`public/sw.js:21-32`]** Service workeren cacher alle cross-origin GET-requests uden udløb/versionering — kan vokse ubegrænset og vise forældede fotos offline. _(fundet af: qa-mobil-pwa)_
 - **[`DiscScanner.jsx:346-368`]** Ingen guard mod dobbelt-tilføjelse ved hurtigt dobbeltklik på "Tilføj til min samling". _(fundet af: qa-power-simon)_
 - **[`src/utils.js:65`]** `genId()` er ikke kollisionssikker ved meget hurtig bulk-scanning inden for samme millisekund. _(fundet af: qa-data)_
-- **[`src/App.jsx:161-165,215-224`]** Default-bag/salgsliste oprettes ubetinget når tilhørende Supabase-række er tom — kan i kombination med forbigående netværksfejl skabe en tom default, der senere overskriver reel data. _(fundet af: qa-data)_
+- **✅ RETTET (Bølge 1) — [`src/App.jsx`]** Default-bag/salgsliste oprettes nu kun når load-kæden er fuldt bekræftet fejlfri og nøglen er bevist tom (`ok:true, value:null`) — en fejlet load aborterer hele sekvensen før nogen default skrives. _(fundet af: qa-data)_

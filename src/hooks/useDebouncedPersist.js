@@ -23,9 +23,16 @@ export function useDebouncedPersist(key, value, dataLoaded) {
       if (timeoutRef.current == null) return;
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
-      store.set(key, JSON.stringify(valueRef.current)).catch(() => {});
+      store.setUrgent(key, JSON.stringify(valueRef.current)).catch(() => {});
     };
+    const onVisibilityChange = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flush);
     window.addEventListener("beforeunload", flush);
-    return () => window.removeEventListener("beforeunload", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
   }, [key, dataLoaded]);
 }

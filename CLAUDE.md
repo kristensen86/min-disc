@@ -96,6 +96,14 @@ Mere-menu: Salg, Stats, Ønskeliste, Del app
 - localStorage fallback
 - Migration fra localStorage ved første login
 
+**Persistering (Bølge 1 — datatab & sync, juli 2026)**
+- `store.get()`/`store.set()` skelner eksplicit mellem fejl og bekræftet tom (`{ok:true, value}` vs. `{ok:false, error}`) — en netværksfejl kan aldrig længere fejltolkes som "kontoen er tom" og udløse en destruktiv skrivning. Transiente fejl retries automatisk (2 retries på læsning, 1 på skrivning); 401/403 fejler hurtigt uden retry.
+- Skrivning til Supabase er låst bag et `loadConfirmed`-flag, som først sættes når *alle* persisterede nøgler er læst uden fejl ved app-load — en delvist fejlet load blokerer al persistering og viser en ikke-blokerende fejlbanner med "Prøv igen" i stedet for at risikere at overskrive cloud-data med tomme/forældede lokale værdier.
+- `useDebouncedPersist` flusher nu på `visibilitychange` (primær — fanger mobil-baggrundslukning tidligt), `pagehide` og `beforeunload` (sekundære), via `store.setUrgent`: en rå `fetch` med `keepalive:true` og `Authorization`-header direkte mod Supabase REST (`sendBeacon` kan ikke bruges — den API'en tillader ingen custom headers). Falder tilbage til normal `store.set` for payloads over ~60KB eller uden gyldig token.
+- Auth-token-refresh (`TOKEN_REFRESHED`) genindlæser ikke længere al state — kun et reelt bruger-id-skifte (login/logout/anden bruger) trigger en ny load.
+- Legacy-migrering af `owned` (streng-array → `{uid,discId}`) bruger deterministiske uid'er (`legacyUid(discId,index)` i `utils.js`) i stedet for tilfældige, så migreringen er idempotent uanset hvor mange gange/samtidigt den kører. Allerede-migrerede konti (uid'er allerede i objekt-format) er urørte.
+- `user_data`-tabellen har en additiv `updated_at`-kolonne (trigger-opdateret) til fejlsøgning — bruges endnu ikke til konfliktafvisning ved samtidig brug på tværs af faner/enheder (last-write-wins er stadig gældende adfærd; se `PLAN-bolge1.md`).
+
 ## Datamodel
 ownedInstances: [{ uid, discId }]
 overrides: { [uid]: { speed?, glide?, turn?, fade?,

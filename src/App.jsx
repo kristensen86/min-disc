@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Search, Plus, X, Trash2, AlertCircle, Heart, Tag, Library, Briefcase, BarChart2, Bookmark, Share2, Camera, MoreHorizontal } from "lucide-react";
-import { supabase, setUser } from "./supabase";
+import { supabase, setUser, setAccessToken } from "./supabase";
 import { C, TYPE_COLOR, TYPES, FALLBACK, typeFromSpeed } from "./constants";
-import { encodeBag, decodeBag, genId, resolveDisc } from "./utils";
+import { encodeBag, decodeBag, genId, legacyUid, resolveDisc } from "./utils";
 import { store } from "./store";
 import { uploadPhoto, deletePhoto } from "./photoStorage";
 import { iconBtn, btn, Empty, SectionHeader } from "./components/ui";
@@ -27,6 +27,21 @@ import { UpdateBanner } from "./components/UpdateBanner";
 
 const SWIPE_TAB_ORDER = ["db", "owned", "bags"];
 
+// Reads one persisted key, distinguishing a hard failure ({ok:false}) from a
+// confirmed-empty result. Only on confirmed-empty (and only for a logged-in
+// user) does it fall back to a legacy localStorage value. A failure never
+// triggers the localStorage fallback and never becomes "empty" downstream.
+async function loadKey(key, authUser) {
+  const res = await store.get(key);
+  if (!res.ok) return { ok: false };
+  if (res.value == null && authUser) {
+    let lv = null;
+    try { lv = localStorage.getItem("md_" + key); } catch (_) {}
+    if (lv) return { ok: true, value: lv };
+  }
+  return { ok: true, value: res.value };
+}
+
 export default function App() {
   const { updateReady, applyUpdate } = useServiceWorkerUpdate();
   const [authUser, setAuthUser] = useState(null);
@@ -34,7 +49,9 @@ export default function App() {
   const [allDiscs, setAllDiscs] = useState([]);
   const [discsLoading, setDiscsLoading] = useState(true);
   const [usingFallback, setFallback] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadConfirmed, setLoadConfirmed] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [owned, setOwned] = useState([]);
   const [bags, setBags] = useState([]);
   const [tab, setTab] = useState("owned");
@@ -86,16 +103,18 @@ export default function App() {
     if (!supabase) { setAuthLoading(false); return; }
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
-      setUser(u); setAuthUser(u); setAuthLoading(false);
+      setUser(u); setAccessToken(session?.access_token ?? null);
+      setAuthUser(u); setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Only a real identity change (sign-in as a different user, or sign-out)
+    // should trigger a full state reload — a TOKEN_REFRESHED (or any other
+    // event for the same user) must not produce a new authUser reference,
+    // otherwise the load effect below re-runs and can clobber unsaved edits.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null;
-      setUser(u); setAuthUser(u);
-      if (!u) {
-        setDataLoaded(false);
-        setOwned([]); setBags([]); setOverrides({}); setWishlist([]);
-        setSaleLists([]); setActiveSaleListId(null);
-      }
+      setUser(u); setAccessToken(session?.access_token ?? null);
+      if (event === "SIGNED_OUT") { setAuthUser(null); return; }
+      setAuthUser(prev => (prev && u && prev.id === u.id) ? prev : u);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -109,60 +128,75 @@ export default function App() {
 
   useEffect(() => {
     if (authLoading) return;
-    setDataLoaded(false);
+    setLoadConfirmed(false);
+    setLoadError(false);
+    let cancelled = false;
+    // Writes are collected here and only committed once the entire load has
+    // been confirmed error-free — never inline mid-load, so a failure on a
+    // later key can't leave an earlier migration/default half-written.
+    const pendingWrites = [];
     (async () => {
+      function bail() { if (!cancelled) { setLoadError(true); setLoadConfirmed(false); } }
+
       let ownedIds = [];
       let loadedOverrides = {};
-      try {
-        let res = await store.get("owned");
-        if (!res?.value && authUser) { const lv = localStorage.getItem("md_owned"); if (lv) res = { value: lv }; }
-        if (res?.value) {
-          const raw = JSON.parse(res.value);
-          if (raw.length > 0 && typeof raw[0] === "string") {
-            ownedIds = raw.map(discId => ({ uid: genId(), discId }));
-            let ovRes = await store.get("overrides");
-            if (!ovRes?.value && authUser) { const lv = localStorage.getItem("md_overrides"); if (lv) ovRes = { value: lv }; }
-            if (ovRes?.value) {
-              try {
-                const rawOv = JSON.parse(ovRes.value);
-                const discIdSet = new Set(ownedIds.map(x => x.discId));
-                const firstKey = Object.keys(rawOv)[0];
-                if (firstKey && discIdSet.has(firstKey)) {
-                  const migOv = {};
-                  ownedIds.forEach(({ uid, discId }) => { if (rawOv[discId]) migOv[uid] = rawOv[discId]; });
-                  loadedOverrides = migOv;
-                } else { loadedOverrides = rawOv; }
-              } catch (_) {}
-            }
-            store.set("owned", JSON.stringify(ownedIds)).catch(() => {});
-            store.set("overrides", JSON.stringify(loadedOverrides)).catch(() => {});
-          } else {
-            ownedIds = raw;
-            let ovRes = await store.get("overrides");
-            if (!ovRes?.value && authUser) { const lv = localStorage.getItem("md_overrides"); if (lv) ovRes = { value: lv }; }
-            try { if (ovRes?.value) loadedOverrides = JSON.parse(ovRes.value); } catch (_) {}
+      const ownedRes = await loadKey("owned", authUser);
+      if (!ownedRes.ok) return bail();
+      if (ownedRes.value) {
+        let raw = [];
+        try { raw = JSON.parse(ownedRes.value); } catch (_) {}
+        if (raw.length > 0 && typeof raw[0] === "string") {
+          const seen = {};
+          ownedIds = raw.map(discId => {
+            const idx = seen[discId] || 0; seen[discId] = idx + 1;
+            return { uid: legacyUid(discId, idx), discId };
+          });
+          const ovRes = await loadKey("overrides", authUser);
+          if (!ovRes.ok) return bail();
+          if (ovRes.value) {
+            try {
+              const rawOv = JSON.parse(ovRes.value);
+              const discIdSet = new Set(ownedIds.map(x => x.discId));
+              const firstKey = Object.keys(rawOv)[0];
+              if (firstKey && discIdSet.has(firstKey)) {
+                const migOv = {};
+                ownedIds.forEach(({ uid, discId }) => { if (rawOv[discId]) migOv[uid] = rawOv[discId]; });
+                loadedOverrides = migOv;
+              } else { loadedOverrides = rawOv; }
+            } catch (_) {}
           }
-        } else if (!authUser) {
-          const legacy = await store.get("bag").catch(() => null);
-          if (legacy?.value) {
-            ownedIds = JSON.parse(legacy.value).map(discId => ({ uid: genId(), discId }));
-            await store.set("owned", JSON.stringify(ownedIds)).catch(() => {});
-          }
+          pendingWrites.push({ key: "owned", value: JSON.stringify(ownedIds) });
+          pendingWrites.push({ key: "overrides", value: JSON.stringify(loadedOverrides) });
+        } else {
+          ownedIds = raw;
+          const ovRes = await loadKey("overrides", authUser);
+          if (!ovRes.ok) return bail();
+          try { if (ovRes.value) loadedOverrides = JSON.parse(ovRes.value); } catch (_) {}
         }
-      } catch (_) {}
-      setOwned(ownedIds);
-      setOverrides(loadedOverrides);
+      } else if (!authUser) {
+        const legacyRes = await loadKey("bag", authUser);
+        if (!legacyRes.ok) return bail();
+        if (legacyRes.value) {
+          try {
+            const seen = {};
+            ownedIds = JSON.parse(legacyRes.value).map(discId => {
+              const idx = seen[discId] || 0; seen[discId] = idx + 1;
+              return { uid: legacyUid(discId, idx), discId };
+            });
+            pendingWrites.push({ key: "owned", value: JSON.stringify(ownedIds) });
+          } catch (_) {}
+        }
+      }
+
       let bagsList = null;
-      try {
-        let res = await store.get("bags");
-        if (!res?.value && authUser) { const lv = localStorage.getItem("md_bags"); if (lv) res = { value: lv }; }
-        if (res?.value) bagsList = JSON.parse(res.value);
-      } catch (_) {}
+      const bagsRes = await loadKey("bags", authUser);
+      if (!bagsRes.ok) return bail();
+      if (bagsRes.value) { try { bagsList = JSON.parse(bagsRes.value); } catch (_) {} }
       if (bagsList === null) {
         bagsList = ownedIds.length > 0
           ? [{ id: genId(), name: "Min bag", bagEntries: ownedIds.map(({ uid }) => ({ entryId: genId(), instanceId: uid })) }]
           : [];
-        store.set("bags", JSON.stringify(bagsList)).catch(() => {});
+        pendingWrites.push({ key: "bags", value: JSON.stringify(bagsList) });
       } else {
         // Migrate: discIds[] → bagEntries[], and discId entries → instanceId entries
         bagsList = bagsList.map(b => {
@@ -183,35 +217,32 @@ export default function App() {
           };
         });
       }
-      setBags(bagsList);
+
       let wishlistIds = [];
-      try {
-        let res = await store.get("wishlist");
-        if (!res?.value && authUser) { const lv = localStorage.getItem("md_wishlist"); if (lv) res = { value: lv }; }
-        try { if (res?.value) wishlistIds = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
-      setWishlist(wishlistIds);
+      const wishlistRes = await loadKey("wishlist", authUser);
+      if (!wishlistRes.ok) return bail();
+      try { if (wishlistRes.value) wishlistIds = JSON.parse(wishlistRes.value); } catch (_) {}
+
       let saleOrderData = [];
-      try {
-        let res = await store.get("saleOrder");
-        try { if (res?.value) saleOrderData = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
+      const saleOrderRes = await loadKey("saleOrder", authUser);
+      if (!saleOrderRes.ok) return bail();
+      try { if (saleOrderRes.value) saleOrderData = JSON.parse(saleOrderRes.value); } catch (_) {}
+
       let historyData = [];
-      try {
-        let res = await store.get("saleHistory");
-        try { if (res?.value) historyData = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
-      setSoldHistory(historyData);
+      const historyRes = await loadKey("saleHistory", authUser);
+      if (!historyRes.ok) return bail();
+      try { if (historyRes.value) historyData = JSON.parse(historyRes.value); } catch (_) {}
+
       let saleListsData = null;
-      try {
-        let res = await store.get("saleLists");
-        try { if (res?.value) saleListsData = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
+      const saleListsRes = await loadKey("saleLists", authUser);
+      if (!saleListsRes.ok) return bail();
+      try { if (saleListsRes.value) saleListsData = JSON.parse(saleListsRes.value); } catch (_) {}
+
       let activeSaleListIdData = null;
-      try {
-        let res = await store.get("activeSaleListId");
-        try { if (res?.value) activeSaleListIdData = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
+      const activeSaleListIdRes = await loadKey("activeSaleListId", authUser);
+      if (!activeSaleListIdRes.ok) return bail();
+      try { if (activeSaleListIdRes.value) activeSaleListIdData = JSON.parse(activeSaleListIdRes.value); } catch (_) {}
+
       if (!saleListsData || saleListsData.length === 0) {
         const defaultList = {
           id: genId(), name: "Standard salgsliste", createdAt: new Date().toISOString(),
@@ -219,41 +250,52 @@ export default function App() {
         };
         saleListsData = [defaultList];
         activeSaleListIdData = defaultList.id;
-        store.set("saleLists", JSON.stringify(saleListsData)).catch(() => {});
-        store.set("activeSaleListId", JSON.stringify(activeSaleListIdData)).catch(() => {});
+        pendingWrites.push({ key: "saleLists", value: JSON.stringify(saleListsData) });
+        pendingWrites.push({ key: "activeSaleListId", value: JSON.stringify(activeSaleListIdData) });
       }
+
+      let customData = [];
+      const customDiscsRes = await loadKey("customDiscs", authUser);
+      if (!customDiscsRes.ok) return bail();
+      try { if (customDiscsRes.value) customData = JSON.parse(customDiscsRes.value); } catch (_) {}
+
+      let tournamentHistoryData = [];
+      const tournamentHistoryRes = await loadKey("tournamentHistory", authUser);
+      if (!tournamentHistoryRes.ok) return bail();
+      try { if (tournamentHistoryRes.value) tournamentHistoryData = JSON.parse(tournamentHistoryRes.value); } catch (_) {}
+
+      if (cancelled) return;
+      // Everything above succeeded — safe to apply state and commit any
+      // migration/default writes that were queued along the way.
+      setOwned(ownedIds);
+      setOverrides(loadedOverrides);
+      setBags(bagsList);
+      setWishlist(wishlistIds);
+      setSoldHistory(historyData);
       setSaleLists(saleListsData);
       setActiveSaleListId(activeSaleListIdData);
-      let customData = [];
-      try {
-        let res = await store.get("customDiscs");
-        try { if (res?.value) customData = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
       setCustomDiscs(customData);
       if (customData.length > 0) {
         setAllDiscs(prev => [...prev.filter(d => !d.isCustom), ...customData]);
       }
-      let tournamentHistoryData = [];
-      try {
-        let res = await store.get("tournamentHistory");
-        try { if (res?.value) tournamentHistoryData = JSON.parse(res.value); } catch (_) {}
-      } catch (_) {}
       setTournamentHistory(tournamentHistoryData);
-      setDataLoaded(true);
+      for (const w of pendingWrites) store.set(w.key, w.value).catch(() => {});
+      setLoadConfirmed(true);
     })();
-  }, [authUser, authLoading]);
+    return () => { cancelled = true; };
+  }, [authUser?.id ?? null, authLoading, reloadNonce]);
 
-  useDebouncedPersist("owned", owned, dataLoaded);
-  useDebouncedPersist("overrides", overrides, dataLoaded);
-  useDebouncedPersist("bags", bags, dataLoaded);
-  useDebouncedPersist("wishlist", wishlist, dataLoaded);
-  useDebouncedPersist("saleHistory", soldHistory, dataLoaded);
-  useDebouncedPersist("saleLists", saleLists, dataLoaded);
-  useDebouncedPersist("activeSaleListId", activeSaleListId, dataLoaded);
-  useDebouncedPersist("customDiscs", customDiscs, dataLoaded);
-  useDebouncedPersist("tournamentHistory", tournamentHistory, dataLoaded);
+  useDebouncedPersist("owned", owned, loadConfirmed);
+  useDebouncedPersist("overrides", overrides, loadConfirmed);
+  useDebouncedPersist("bags", bags, loadConfirmed);
+  useDebouncedPersist("wishlist", wishlist, loadConfirmed);
+  useDebouncedPersist("saleHistory", soldHistory, loadConfirmed);
+  useDebouncedPersist("saleLists", saleLists, loadConfirmed);
+  useDebouncedPersist("activeSaleListId", activeSaleListId, loadConfirmed);
+  useDebouncedPersist("customDiscs", customDiscs, loadConfirmed);
+  useDebouncedPersist("tournamentHistory", tournamentHistory, loadConfirmed);
   useEffect(() => {
-    if (!dataLoaded || !authUser || photoMigrationRan.current) return;
+    if (!loadConfirmed || !authUser || photoMigrationRan.current) return;
     photoMigrationRan.current = true;
     const snapshot = overrides;
     const uids = Object.keys(snapshot).filter(uid => snapshot[uid]?.pPhoto?.startsWith?.("data:"));
@@ -266,7 +308,7 @@ export default function App() {
         } catch { /* keep base64 — retried next session */ }
       }
     })();
-  }, [dataLoaded, authUser]);
+  }, [loadConfirmed, authUser]);
   useEffect(() => { if (tab !== "owned") setOwnedQuery(""); }, [tab]);
   useEffect(() => {
     if (!editingDiscUid) return;
@@ -1010,6 +1052,27 @@ export default function App() {
             borderRadius: 13, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", fontSize: 13, color: C.text,
           }}>
             {photoError}
+          </div>
+        </div>
+      )}
+
+      {loadError && (
+        <div style={{
+          position: "fixed", left: 0, right: 0,
+          bottom: "calc(64px + env(safe-area-inset-bottom))",
+          zIndex: 101, display: "flex", justifyContent: "center", padding: "0 16px", pointerEvents: "none",
+        }}>
+          <div style={{
+            maxWidth: 560, width: "100%", pointerEvents: "auto",
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            padding: "10px 12px 10px 14px", background: C.raised, border: `1px solid ${C.distance}45`,
+            borderRadius: 13, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", fontSize: 13, color: C.text,
+          }}>
+            <span>Kunne ikke indlæse dine data — tjek din forbindelse.</span>
+            <button
+              style={{ ...btn("default"), padding: "7px 12px", fontSize: 13, flexShrink: 0 }}
+              onClick={() => setReloadNonce(n => n + 1)}
+            >Prøv igen</button>
           </div>
         </div>
       )}
