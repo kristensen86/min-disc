@@ -5180,6 +5180,20 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=heist&post_type=product"
   },
   {
+    "id": "69ab5dd9-3fab-5bb1-8703-5a879a09a70e",
+    "name": "Intent",
+    "brand": "Dynamic Discs",
+    "category": "Control Driver",
+    "type": "Fairway",
+    "speed": 9,
+    "glide": 4,
+    "turn": 0.5,
+    "fade": 3,
+    "stability": "Overstable",
+    "pic": "",
+    "link": ""
+  },
+  {
     "id": "8516406b-17d3-51a5-b3f2-6666bdb88f33",
     "name": "Judge",
     "brand": "Dynamic Discs",
@@ -15062,6 +15076,20 @@
     "stability": "Understable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/0000076.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=mantra&post_type=product"
+  },
+  {
+    "id": "e62b6b74-5b49-5ba1-8991-8e14dd2a680c",
+    "name": "Mellow",
+    "brand": "Thought Space Athletics",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 1,
+    "glide": 5,
+    "turn": 0,
+    "fade": 1,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "5884cf70-a88e-53ed-90ce-d7ecdbd0bc99",
