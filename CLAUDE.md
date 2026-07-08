@@ -131,7 +131,23 @@ VITE_SUPABASE_ANON_KEY
 
 ## QA
 
-`/qa-board` kører et fuldt QA-board af 6 persona-subagents (`.claude/agents/qa-*.md`) parallelt mod kodebasen — hver med sin egen vinkel (ny bruger, power user, mobil/PWA, sikkerhed, dataintegritet, design). De læser kun kode og ændrer intet. Resultatet samles, deduplikeres og skrives til `qa-report.md` i repo-roden, sorteret efter prioritet (KRITISK/HØJ/MELLEM/LAV) med en topliste over de 5 vigtigste fund.
+`/qa-board` kører **alle** persona-subagents i `.claude/agents/qa-*.md` (dynamisk, ikke en fast liste) parallelt mod kodebasen. De læser kun kode og ændrer intet. Resultatet samles, deduplikeres (med angivelse af hvilke agents der fandt hvad) og skrives til `qa-report.md` i repo-roden, sorteret efter prioritet (KRITISK/HØJ/MELLEM/LAV) med en topliste over de 5 vigtigste fund.
+
+Generelle persona-agents:
+- `qa-ny-bruger` — Nina, helt ny bruger uden konto: first-run, tomme tilstande, forståelighed
+- `qa-power-user` — Peter, 200+ discs/8 bags: performance, renders, Flight Matrix-overlap
+- `qa-mobil-pwa` — Mia, kun telefon: touch targets, offline, SW-update-banner, kamera-flow
+- `qa-sikkerhed` — Sofus, sikkerhedsrevisor: secrets, `/api/scan`-validering, RLS/Storage, XSS
+- `qa-data` — Dara, dataintegritet: migrering, foto-migrering, uid/overrides, race conditions
+- `qa-design` — Uma, designkritiker: designsystem-konsistens, typografi, spacing, hierarki
+
+Disc golf-nørde-personaer:
+- `qa-reviewer-rob` — Reviewer-Rob, disc-anmelder: flight-tal/plast/vægt-datakvalitet, overrides vs. fabrikstal
+- `qa-form-dan` — Form-nørden Dan, kastemekanik: slid (pWear) vs. flight-overrides, S/G/T/F-validering
+- `qa-journalist-charlie` — Journalist-Charlie, datajournalist: efterprøver alle tal i Stats, division-med-nul
+- `qa-brugt-jesse` — Bæredygtige Jesse, brugtmarked: hele salgsflowet ende-til-ende
+- `qa-hype-finn` — Hype-Finn, nyheds-junkie: ukendte/nye molds, "opret egen disc", fuzzy matching
+- `qa-power-simon` — Lizotte-typen Simon, power-eksperimentator: bulk-scanning, gentaget mold-skift, race conditions
 
 ## Arbejdsflow
 
