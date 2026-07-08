@@ -129,6 +129,10 @@ VITE_SUPABASE_ANON_KEY
 - Flight labels kan overlappe ved mange tætte discs
 - Fotos ligger i Supabase Storage-bucket "disc-photos" under {userId}/{uid}.jpg, med base64-fallback for ikke-loggede brugere
 
+## QA
+
+`/qa-board` kører et fuldt QA-board af 6 persona-subagents (`.claude/agents/qa-*.md`) parallelt mod kodebasen — hver med sin egen vinkel (ny bruger, power user, mobil/PWA, sikkerhed, dataintegritet, design). De læser kun kode og ændrer intet. Resultatet samles, deduplikeres og skrives til `qa-report.md` i repo-roden, sorteret efter prioritet (KRITISK/HØJ/MELLEM/LAV) med en topliste over de 5 vigtigste fund.
+
 ## Arbejdsflow
 
 - Planlægning og prompts: Claude.ai-projektet
