@@ -266,20 +266,6 @@
     "link": "https://www.marshallstreetdiscgolf.com/?s=dragonfly&post_type=product"
   },
   {
-    "id": "2139a9c3-0700-5b0b-b169-b9e987f1eb37",
-    "name": "Osprey",
-    "brand": "AquaFlight",
-    "category": "Distance Driver",
-    "type": "Distance",
-    "speed": 12,
-    "glide": 4,
-    "turn": -1,
-    "fade": 2,
-    "stability": "Overstable",
-    "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/9525843.webp",
-    "link": "https://www.marshallstreetdiscgolf.com/product/aquaflight-osprey"
-  },
-  {
     "id": "62359f73-1461-541a-9548-b22cdae14242",
     "name": "Peace Frog",
     "brand": "AquaFlight",
@@ -8622,6 +8608,20 @@
     "stability": "Stable",
     "pic": "https://s3.amazonaws.com/media.marshallstreetdiscgolf.com/inbounds/4391594.webp",
     "link": "https://www.marshallstreetdiscgolf.com/?s=Stud&post_type=product"
+  },
+  {
+    "id": "e16c6332-c678-5aa9-ab7d-058e9eb51fc7",
+    "name": "Sync",
+    "brand": "Innova",
+    "category": "Putter",
+    "type": "Putter",
+    "speed": 3,
+    "glide": 3,
+    "turn": 0,
+    "fade": 1,
+    "stability": "Stable",
+    "pic": "",
+    "link": ""
   },
   {
     "id": "e0543efb-dab0-54fa-8905-a7c0ef627c53",
